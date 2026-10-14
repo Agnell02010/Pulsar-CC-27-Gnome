@@ -1,7 +1,7 @@
 # Pulsar CC 27 — Centro di controllo macOS per GNOME
 
-<img width="365" height="569" alt="Screenshot From 2026-10-14 21-45-38" src="https://github.com/user-attachments/assets/ed340c2f-d36d-42ea-8367-cbd4aa06152d" />
-<img width="365" height="569" alt="Screenshot From 2026-10-14 21-45-57" src="https://github.com/user-attachments/assets/de889423-5a61-4759-b5d3-e885565a802c" />
+<img width="365" height="569" alt="Pulsar-CC-27(NO-Blur)" src="https://github.com/user-attachments/assets/7f6a8b61-5f11-4396-bf21-215335e58393" />
+<img width="365" height="569" alt="Pulsar-CC-27(Blur)" src="https://github.com/user-attachments/assets/d8cdb1a2-f7f4-44fe-b011-78ec8b58b342" />
 
 
 Un **Centro di controllo in stile macOS** per GNOME Shell 50, con effetto
