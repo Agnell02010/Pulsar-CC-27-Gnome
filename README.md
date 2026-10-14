@@ -1,5 +1,9 @@
 # Pulsar CC 27 — Centro di controllo macOS per GNOME
 
+<img width="365" height="569" alt="Screenshot From 2026-10-14 21-45-38" src="https://github.com/user-attachments/assets/ed340c2f-d36d-42ea-8367-cbd4aa06152d" />
+<img width="365" height="569" alt="Screenshot From 2026-10-14 21-45-57" src="https://github.com/user-attachments/assets/de889423-5a61-4759-b5d3-e885565a802c" />
+
+
 Un **Centro di controllo in stile macOS** per GNOME Shell 50, con effetto
 **Liquid Glass**. Le tessere, i quattro cerchi, il lettore multimediale e gli
 slider sono tutti marcati come "toggle" così che l'estensione *Liquid Glass*
