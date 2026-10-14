@@ -1,0 +1,245 @@
+/* Il menu: nessun margine extra; lo sfondo vetro lo gestisce Liquid Glass */
+.quick-settings {
+    padding: 0;
+    min-width: 0;
+    /* Il tema del sistema disegna un fondo scuro sul menu: lo stesso elemento
+       porta sia "popup-menu-content" (background-color: rgba(36,36,36,0.92))
+       sia "quick-settings", e il tema ci applica anche un border-image nero
+       al 25% (assets/menu_x2.svg). Era quello il "bg nero trasparente" che si
+       vedeva dietro le tessere. Qui lo togliamo: sotto resta solo il vetro
+       di Liquid Glass. (St supporta esplicitamente "border-image: none".) */
+    background-color: transparent;
+    background-image: none;
+    border-image: none;
+    box-shadow: none;
+}
+
+.mac-cc {
+    padding: 22px;
+    spacing: 17px;
+    width: 310px;
+    /* Font di macOS (San Francisco). E' l'unico SF presente sul sistema. */
+    font-family: "SF UI Text", sans-serif;
+}
+.mac-title, .mac-sub, .mac-media-title { font-family: "SF UI Text", sans-serif; }
+.mac-row { spacing: 17px; }
+.mac-col { spacing: 17px; width: 146px; }
+
+/* Tessere standard: 146 x 65 - Trasparenza ottimizzata per Liquid Glass */
+.mac-tile {
+    width: 146px;
+    min-width: 146px;
+    max-width: 146px;
+    height: 65px;
+    border-radius: 32px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: white;
+    padding: 0;
+}
+.mac-tile-row { spacing: 8px; padding: 0 10px 0 11px; }
+
+/* ---------------------------------------------------------------------------
+   DIFESA DAL TEMA DI GNOME SHELL (qui: MacTahoe-Dark)
+
+   Le nostre tessere portano la classe "quick-toggle" perche' serve a Liquid
+   Glass, e il tema installato prende di mira proprio i figli StBoxLayout di
+   quelle tessere:
+
+       .quick-toggle > StBoxLayout      { spacing: 8px;  padding: 0 8px; }
+       .quick-toggle:ltr > StBoxLayout  { padding-left: 20px; }
+
+   Quel rientro di 20px il tema se lo prendeva solo dove le nostre regole NON
+   dichiaravano un padding: cosi' i tasti del lettore e la riga degli slider
+   finivano spostati a destra (era questo il "lettore decentrato"). Con un
+   selettore piu' specifico del tema lo azzeriamo in modo esplicito.
+   --------------------------------------------------------------------------- */
+.mac-cc .quick-toggle > .mac-tile-row       { padding: 0 10px 0 11px; spacing: 8px; }
+.mac-cc .quick-toggle > .mac-media-controls { padding: 0; spacing: 0; margin-bottom: 14px; }
+.mac-cc .quick-toggle > .mac-slider-row     { padding: 0; spacing: 7px; }
+
+/* Cerchio interattivo interno alla tessera (es. On/Off Wi-Fi).
+   Liquid Glass azzera "background-color" su ogni widget riconosciuto, quindi
+   per il pallino uso un'immagine di sfondo (background-image): Liquid Glass
+   non la tocca e il pallino sopravvive. Le PNG sono quadrati bianchi con la
+   trasparenza giusta, ritagliati a cerchio dal border-radius del widget.
+   (Strada scelta perché anche la copertina del lettore usa url("file://...")
+   e funziona.) */
+.mac-bubble {
+    width: 38px;
+    height: 38px;
+    border-radius: 119px;
+    background-image: url("file:///home/agnell0/.local/share/gnome-shell/extensions/macos-control-centre-lg@pulsar.local/bubble-off.png");
+    color: white;
+}
+.mac-bubble:hover {
+    background-image: url("file:///home/agnell0/.local/share/gnome-shell/extensions/macos-control-centre-lg@pulsar.local/bubble-hover.png");
+}
+.mac-bubble:checked, .mac-bubble:active {
+    background-image: url("file:///home/agnell0/.local/share/gnome-shell/extensions/macos-control-centre-lg@pulsar.local/bubble-on.png");
+    color: black;
+}
+.mac-bubble:checked .mac-icon, .mac-bubble:active .mac-icon { color: black; }
+
+/* Area di testo interattiva per aprire il menù a tendina */
+.mac-tile-text-btn {
+    background-color: transparent;
+    border-radius: 17px;
+    padding: 5px 7px;
+}
+.mac-tile-text-btn:hover { background-color: rgba(255, 255, 255, 0.10); }
+
+.mac-icon { icon-size: 23px; }
+.mac-small { icon-size: 18px; color: rgba(255, 255, 255, 0.85); }
+
+.mac-title { font-size: 12px; font-weight: 700; color: white; }
+.mac-sub { font-size: 10px; font-weight: 500; color: rgba(255, 255, 255, 0.75); }
+
+/* Pulsanti circolari isolati (es. Tema scuro, Screenshot) */
+.mac-circle {
+    width: 65px;
+    min-width: 65px;
+    max-width: 65px;
+    height: 65px;
+    border-radius: 119px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: white;
+    padding: 0;
+}
+.mac-circle .mac-icon { icon-size: 30px; }
+/* Hover e stato "acceso": uso immagini di sfondo, che Liquid Glass non tocca
+   (altrimenti il vetro azzererebbe il background-color). Da spento resta il
+   vetro del pulsante; da acceso appare il cerchio bianco pieno come su macOS. */
+.mac-circle:hover {
+    background-image: url("file:///home/agnell0/.local/share/gnome-shell/extensions/macos-control-centre-lg@pulsar.local/circle-hover.png");
+}
+.mac-circle:checked, .mac-circle:active {
+    background-image: url("file:///home/agnell0/.local/share/gnome-shell/extensions/macos-control-centre-lg@pulsar.local/circle-on.png");
+    border-color: white;
+    color: black;
+}
+.mac-circle:checked .mac-icon, .mac-circle:active .mac-icon { color: black; }
+
+/* Riquadro multimediale (intero) bloccato a 146x146 */
+.mac-media {
+    width: 146px;
+    min-width: 146px;
+    max-width: 146px;
+    height: 146px;
+    min-height: 146px;
+    max-height: 146px;
+    border-radius: 29px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    padding: 0;
+}
+
+/* Copertina quadrata in alto a sinistra (stile macOS) */
+.mac-media-art {
+    width: 46px;
+    min-width: 46px;
+    max-width: 46px;
+    height: 46px;
+    min-height: 46px;
+    max-height: 46px;
+    border-radius: 11px;
+    background-color: rgba(255, 255, 255, 0.15);
+    margin: 16px 0 7px 16px;
+}
+
+/* Titolo del brano */
+.mac-media-title { 
+    font-size: 11px; 
+    font-weight: 600; 
+    color: white; 
+    margin: 0 14px 0 16px; 
+}
+
+/* Container pulsanti allineato in basso. Lo "spacing" e' 0: la distanza tra i
+   tasti la danno i loro margini (7px per lato = 14px), cosi' i due spaziatori
+   elastici aggiunti nel codice possono centrare la riga senza falsare i vuoti. */
+.mac-media-controls { 
+    spacing: 0;
+    padding: 0;
+    margin-bottom: 14px;
+}
+
+/* Pulsanti del lettore */
+.mac-media-button,
+.mac-media-button:focus {
+    width: 31px;
+    min-width: 31px;
+    max-width: 31px;
+    height: 31px;
+    min-height: 31px;
+    max-height: 31px;
+    border-radius: 16px; 
+    background-color: transparent; 
+    border-color: transparent;
+    box-shadow: none;
+    color: white;
+    padding: 0;
+    margin: 0 7px;
+}
+.mac-media-button:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
+}
+.mac-media-button:active,
+.mac-media-button:checked {
+    background-color: rgba(255, 255, 255, 0.28);
+    box-shadow: none;
+    color: white;
+}
+
+.mac-media-icon {
+    icon-size: 23px; 
+}
+
+.mac-bubble:focus, .mac-circle:focus, .mac-tile-text-btn:focus { box-shadow: none; }
+
+/* Slider (Schermo, Audio) */
+.mac-slider-tile {
+    width: 271px;
+    height: 46px;
+    padding: 10px 19px;
+    /* Stesso raggio del vetro dei toggle di Liquid Glass
+       (quick-settings-toggle-corner-radius = 32.5): se il raggio della tessera
+       e' piu' piccolo, i suoi angoli escono fuori dal vetro e "si vede la
+       base" sotto. 32.5 < meta' altezza (34), quindi la forma resta valida. */
+    border-radius: 32.5px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    spacing: 1px;
+}
+/* Altezza minima uguale per entrambe le righe: la riga del volume contiene
+   anche il pulsante AirPlay (26px) e quindi e' piu' alta di quella della
+   luminosita', il che faceva finire la barra della luminosita' piu' in alto.
+   Fissando la stessa altezza le due barre sono allineate (1:1). */
+.mac-slider-row { spacing: 7px; padding: 0; min-height: 28px; }
+.mac-slider-tile .slider {
+    -slider-height: 5px;
+    -slider-background-color: rgba(255, 255, 255, 0.25);
+    -slider-border-color: transparent;
+    -slider-active-background-color: white;
+    -slider-active-border-color: transparent;
+    -slider-border-width: 0px;
+    -slider-handle-radius: 0px;
+    height: 17px;
+    min-width: 132px;
+}
+
+/* Pulsante AirPlay accanto al volume */
+.mac-airplay {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    border-radius: 119px;
+    background-color: rgba(255, 255, 255, 0.15);
+    color: white;
+    padding: 0;
+    box-shadow: none;
+}
+.mac-airplay:hover { background-color: rgba(255, 255, 255, 0.25); }
+.mac-airplay:active { background-color: rgba(255, 255, 255, 0.35); }

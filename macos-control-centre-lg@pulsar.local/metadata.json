@@ -1,0 +1,7 @@
+{
+  "uuid": "macos-control-centre-lg@pulsar.local",
+  "name": "Centro di controllo stile macOS (Liquid Glass)",
+  "description": "Copia del Centro di controllo stile macOS resa compatibile con Liquid Glass: le tile vengono marcate come toggle così l'effetto vetro si applica anche al centro di controllo.",
+  "shell-version": ["50"],
+  "version": 1
+}
