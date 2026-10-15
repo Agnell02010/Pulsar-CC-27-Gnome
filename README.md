@@ -1,9 +1,9 @@
-# Pulsar CC 27 — macOS Control Centre for GNOME
+# Pulsar CC 27 — macOS Control Center for GNOME
 
 <img width="365" height="569" alt="Pulsar-CC-27 (No Blur)" src="https://github.com/user-attachments/assets/7f6a8b61-5f11-4396-bf21-215335e58393" />
 <img width="365" height="569" alt="Pulsar-CC-27 (Blur)" src="https://github.com/user-attachments/assets/d8cdb1a2-f7f4-44fe-b011-78ec8b58b342" />
 
-A **macOS-style Control Centre** for GNOME Shell 50, featuring a **Liquid Glass** effect. Tiles, four circular elements, the media player, and sliders are all marked as `"toggle"` elements, allowing the *Liquid Glass* extension to apply the glass effect to **every element**, not just the buttons.
+A **macOS-style Control Center** for GNOME Shell 50, featuring a **Liquid Glass** effect. Tiles, four circular elements, the media player, and sliders are all marked as `"toggle"` elements, allowing the *Liquid Glass* extension to apply the glass effect to **every element**, not just the buttons.
 
 Created by **[Agnell02010](https://github.com/Agnell02010)**.
 
@@ -31,7 +31,7 @@ Created by **[Agnell02010](https://github.com/Agnell02010)**.
 1. **GNOME Shell 50** (supports both Wayland and X11).
 2. **[Liquid Glass extension](https://extensions.gnome.org/extension/7344/liquid-glass/)** installed and enabled (`liquid-glass@thinkingcoding1231.gmail.com`).
 
-   *Without this extension, the Control Centre still works, but the glass effect will not be available.*
+   *Without this extension, the Control Center still works, but the glass effect will not be available.*
 
 3. *(Recommended)* The **MacTahoe-Dark** GNOME Shell theme for a closer macOS-like appearance.
 
@@ -59,7 +59,7 @@ The installer:
 3. Asks whether to apply the included **Liquid Glass** profile (recommended: `NO_BLUR`).
 4. Explains how to complete the installation by logging out and back in.
 
-### Manual installation
+### Manual Installation
 
 If you prefer to install it manually:
 
@@ -78,9 +78,9 @@ dconf load /org/gnome/shell/extensions/liquid-glass/ \
 
 > ⚠️ **Wayland:** New extensions require a logout/login to be loaded. On X11, you can usually restart GNOME Shell using `Alt+F2`, then `r`.
 
-### After logging in
+### After Logging In
 
-Press **`Super+S`** to open the Control Centre, or click the system icon in the top-right corner.
+Press **`Super+S`** to open the Control Center, or click the system icon in the top-right corner.
 
 ---
 
@@ -88,7 +88,7 @@ Press **`Super+S`** to open the Control Centre, or click the system icon in the 
 
 The `liquid-glass/` directory contains two ready-to-use profiles:
 
-| Profile | Effect | Recommended use |
+| Profile | Effect | Recommended Use |
 |---|---|---|
 | `liquid_glass_settings(NO_BLUR).txt` | Glass without blur | **Recommended** — lighter and less resource-intensive |
 | `liquid_glass_settings(BLUR).txt` | Glass with blur | A softer, more translucent appearance |
@@ -107,7 +107,7 @@ Alternatively, use the included scripts:
 ./liquid-glass/applica-profilo.sh blur
 ```
 
-### Key settings
+### Key Settings
 
 ```ini
 quick-settings-apply-to=1                # "Toggles" mode (glass on all elements)
@@ -186,3 +186,23 @@ The extension targets **GNOME Shell 50**. Other versions may require modificatio
 Licensed under **GPL-2.0-or-later**. See [LICENSE](LICENSE) for details.
 
 Prefer another license, such as MIT or GPL-3.0? Feel free to open an issue to discuss it.
+
+---
+
+## English Summary
+
+A **macOS-style Control Center** for GNOME Shell 50 with a **Liquid Glass** effect applied to every element, including tiles, circles, the media player, and sliders.
+
+**Requirements:** GNOME Shell 50 and the [Liquid Glass extension](https://extensions.gnome.org/extension/7344/liquid-glass/) for the glass effect. The MacTahoe-Dark Shell theme is optional but recommended.
+
+**Installation:**
+
+```bash
+git clone https://github.com/Agnell02010/Pulsar-CC-27-Gnome.git
+cd Pulsar-CC-27-Gnome
+./install.sh
+```
+
+Log out and back in on Wayland, then press `Super+S` to open the Control Center.
+
+Licensed under **GPL-2.0-or-later**.
