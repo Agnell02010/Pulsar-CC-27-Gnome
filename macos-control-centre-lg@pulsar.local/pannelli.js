@@ -98,6 +98,7 @@ export function crea(ext, h) {
     let gen = 0;
     let currentKind = null;
     let closing = false;
+    let anchor = null;     // actor that triggered opening the detail (used to pivot from it)
 
     function tr(k, fb) { try { return (h.tr && h.tr(k)) || fb; } catch (e) { return fb; } }
     function launch(cmd) { try { h.launch(cmd); } catch (e) { fail(e, 'launch ' + cmd); } }
@@ -361,12 +362,26 @@ export function crea(ext, h) {
         if (mainKids) for (const k of mainKids) { try { k.hide(); } catch (e) {} }
         // Unfold from the top like a curtain: pivot at the top-centre so the
         // sheet grows downward as it fades in (macOS-style reveal).
-        detailRoot.set_pivot_point(0.5, 0);
+        let px = 0.5, py = 0.0;
+        try {
+            if (anchor && ext._panel) {
+                const a = anchor;
+                const [ax, ay] = a.get_transformed_position();
+                const [aw, ah] = a.get_transformed_size();
+                const [bx, by] = ext._panel.get_transformed_position();
+                const [bw, bh] = ext._panel.get_transformed_size();
+                if (bw > 0 && bh > 0) {
+                    px = Math.max(0, Math.min(1, (ax + aw / 2 - bx) / bw));
+                    py = Math.max(0, Math.min(1, (ay + ah / 2 - by) / bh));
+                }
+            }
+        } catch (e) {}
+        detailRoot.set_pivot_point(px, py);
         detailRoot.visible = true;
         detailRoot.opacity = 0;
-        detailRoot.scale_x = 0.97;
-        detailRoot.scale_y = 0.86;
-        detailRoot.ease({opacity: 255, scale_x: 1, scale_y: 1, duration: 220, mode: EASE});
+        detailRoot.scale_x = 0.92;
+        detailRoot.scale_y = 0.88;
+        detailRoot.ease({opacity: 255, scale_x: 1, scale_y: 1, duration: 200, mode: EASE});
     }
 
     function resetMainInstant() {
@@ -434,10 +449,25 @@ export function crea(ext, h) {
         gen++;
         currentKind = null;
         if (detailRoot) {
-            // Fold back up toward the top (reverse of the unfold).
-            detailRoot.set_pivot_point(0.5, 0);
-            detailRoot.ease({opacity: 0, scale_x: 0.97, scale_y: 0.86, duration: 160, mode: EASE,
-                onComplete: () => { try { if (detailRoot) detailRoot.visible = false; } catch (e) {} }});
+            let px = 0.5, py = 0.0;
+            try {
+                if (anchor && ext._panel) {
+                    const a = anchor;
+                    const [ax, ay] = a.get_transformed_position();
+                    const [aw, ah] = a.get_transformed_size();
+                    const [bx, by] = ext._panel.get_transformed_position();
+                    const [bw, bh] = ext._panel.get_transformed_size();
+                    if (bw > 0 && bh > 0) {
+                        px = Math.max(0, Math.min(1, (ax + aw / 2 - bx) / bw));
+                        py = Math.max(0, Math.min(1, (ay + ah / 2 - by) / bh));
+                    }
+                }
+            } catch (e) {}
+            detailRoot.set_pivot_point(px, py);
+            detailRoot.ease({opacity: 0, scale_x: 0.92, scale_y: 0.88, duration: 160, mode: EASE,
+                onComplete: () => { try { if (detailRoot) detailRoot.visible = false; anchor = null; } catch (e) {} }});
+        } else {
+            try { anchor = null; } catch (e) {}
         }
         // Bring the tiles back with a matching unfold.
         if (mainKids) for (const k of mainKids) {
@@ -456,6 +486,7 @@ export function crea(ext, h) {
         currentKind = null;
         if (detailRoot) { try { detailRoot.hide(); detailRoot.opacity = 0; } catch (e) {} }
         if (mainKids) for (const k of mainKids) { try { k.show(); } catch (e) {} }
+        try { anchor = null; } catch (e) {}
         GLib.timeout_add(GLib.PRIORITY_DEFAULT, 60, () => { closing = false; return GLib.SOURCE_REMOVE; });
     }
 

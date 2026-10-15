@@ -506,7 +506,10 @@ function wideTile(iconName, title, subtitle, extraClass, onToggle, onMenu) {
     texts.add_child(s);
     textBtn.set_child(texts);
     bindPress(textBtn, btn);
-    textBtn.connect('clicked', () => onMenu?.());
+    textBtn.connect('clicked', () => {
+        try { if (ext._pan) ext._pan._anchor = btn; } catch (e) {}
+        onMenu?.();
+    });
 
     row.add_child(bubble);
     row.add_child(textBtn);

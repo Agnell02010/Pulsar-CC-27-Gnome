@@ -94,9 +94,11 @@
    is declared as a gradient instead — see the note above the detail panel. */
 .mac-tile-text-btn:hover {
     background-gradient-direction: vertical;
-    background-gradient-start: rgba(255, 255, 255, 0.12);
-    background-gradient-end: rgba(255, 255, 255, 0.10);
+    background-gradient-start: rgba(255, 255, 255, 0.06);
+    background-gradient-end: rgba(255, 255, 255, 0.05);
 }
+.mac-tile-text-btn:focus,
+.mac-tile-text-btn:hover { box-shadow: none; outline: none; }
 
 .mac-icon { icon-size: 23px; }
 .mac-small { icon-size: 18px; color: rgba(255, 255, 255, 0.85); }
@@ -129,6 +131,7 @@
     color: black;
 }
 .mac-circle:checked .mac-icon, .mac-circle:active .mac-icon { color: black; }
+.mac-circle:focus { box-shadow: none; outline: none; }
 
 /* Media player box (whole) locked to 146x146 */
 .mac-media {
@@ -194,18 +197,19 @@
 }
 .mac-media-button:hover {
     background-gradient-direction: vertical;
-    background-gradient-start: rgba(255, 255, 255, 0.14);
-    background-gradient-end: rgba(255, 255, 255, 0.12);
+    background-gradient-start: rgba(255, 255, 255, 0.08);
+    background-gradient-end: rgba(255, 255, 255, 0.07);
     box-shadow: none;
 }
 .mac-media-button:active,
 .mac-media-button:checked {
     background-gradient-direction: vertical;
-    background-gradient-start: rgba(255, 255, 255, 0.30);
-    background-gradient-end: rgba(255, 255, 255, 0.28);
+    background-gradient-start: rgba(255, 255, 255, 0.16);
+    background-gradient-end: rgba(255, 255, 255, 0.15);
     box-shadow: none;
     color: white;
 }
+.mac-media-button:focus { box-shadow: none; outline: none; }
 
 .mac-media-icon {
     icon-size: 23px; 
@@ -258,14 +262,15 @@
 }
 .mac-airplay:hover {
     background-gradient-direction: vertical;
-    background-gradient-start: rgba(255, 255, 255, 0.27);
-    background-gradient-end: rgba(255, 255, 255, 0.25);
+    background-gradient-start: rgba(255, 255, 255, 0.10);
+    background-gradient-end: rgba(255, 255, 255, 0.09);
 }
 .mac-airplay:active {
     background-gradient-direction: vertical;
-    background-gradient-start: rgba(255, 255, 255, 0.37);
-    background-gradient-end: rgba(255, 255, 255, 0.35);
+    background-gradient-start: rgba(255, 255, 255, 0.14);
+    background-gradient-end: rgba(255, 255, 255, 0.13);
 }
+.mac-airplay:focus { box-shadow: none; outline: none; }
 
 /* -------- Detail panels (macOS 26 style) --------
  * The detail view replaces the main CC inside the same menu. It is tagged with
@@ -305,14 +310,16 @@
 }
 .mac-panel-item:hover {
     background-gradient-direction: vertical;
-    background-gradient-start: rgba(255, 255, 255, 0.12);
-    background-gradient-end: rgba(255, 255, 255, 0.10);
+    background-gradient-start: rgba(255, 255, 255, 0.06);
+    background-gradient-end: rgba(255, 255, 255, 0.05);
 }
 .mac-panel-item:active {
     background-gradient-direction: vertical;
-    background-gradient-start: rgba(255, 255, 255, 0.18);
-    background-gradient-end: rgba(255, 255, 255, 0.16);
+    background-gradient-start: rgba(255, 255, 255, 0.10);
+    background-gradient-end: rgba(255, 255, 255, 0.09);
 }
+.mac-panel-item:focus,
+.mac-panel-item:hover { box-shadow: none; outline: none; }
 /* Leading icon, optionally on a coloured chip. */
 .mac-panel-icon {
     icon-size: 17px;
