@@ -507,8 +507,9 @@ function wideTile(iconName, title, subtitle, extraClass, onToggle, onMenu) {
     textBtn.set_child(texts);
     bindPress(textBtn, btn);
     textBtn.connect('clicked', () => {
-        try { if (ext._pan) ext._pan._anchor = btn; } catch (e) {}
-        onMenu?.();
+        // Hand the whole pill to the callback so pannelli.js can expand the
+        // detail sheet out of the tile that was actually clicked.
+        onMenu?.(btn);
     });
 
     row.add_child(bubble);
@@ -823,15 +824,15 @@ export default class MacControlCentre extends Extension {
 
         this._wifi = wideTile('mc:wifi', 'Wi-Fi', '', '', 
             () => this._toggleWifi(), 
-            () => { try { this._pan && (this._pan._anchor = this._wifi); } catch (e) {}; this._openPanel('wifi'); }
+            (anchor) => this._openPanel('wifi', anchor)
         );
         this._bt = wideTile('mc:bluetooth', 'Bluetooth', '', '', 
             () => this._toggleBt(), 
-            () => { try { this._pan && (this._pan._anchor = this._bt); } catch (e) {}; this._openPanel('bluetooth'); }
+            (anchor) => this._openPanel('bluetooth', anchor)
         );
         this._night = wideTile('mc:sun-horizon', tr('night'), '', '', 
             () => this._toggleNight(), 
-            () => { try { this._pan && (this._pan._anchor = this._night); } catch (e) {}; this._openPanel('display'); }
+            (anchor) => this._openPanel('display', anchor)
         );
         left.add_child(this._wifi);
         left.add_child(this._bt);
@@ -873,7 +874,7 @@ export default class MacControlCentre extends Extension {
         circles.add_child(this._shot);
         this._dnd = wideTile('mc:moon', tr('dnd'), '', '', 
             () => this._toggleDnd(), 
-            () => { try { this._pan && (this._pan._anchor = this._dnd); } catch (e) {}; this._openPanel('focus'); }
+            (anchor) => this._openPanel('focus', anchor)
         );
         row4.add_child(circles);
         row4.add_child(this._dnd);

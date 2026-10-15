@@ -288,19 +288,42 @@
 /* -------- Detail panels (macOS 26 style) --------
  * The detail view replaces the main CC inside the same menu. It is tagged with
  * `quick-toggle` (see pannelli.js buildRoot) so Liquid Glass paints its real
- * frosted blur over it, exactly like the tiles — so the background here is kept
- * transparent. Width and padding mirror .mac-cc (310 content width). */
+ * frosted blur over it, exactly like the tiles. Give it the same light base as
+ * the tiles (rgba(255,255,255,0.08)): with a fully transparent pod Liquid Glass
+ * falls back to compositing a dark ancestor colour and the whole sheet turns
+ * progressively black. Width and padding mirror .mac-cc (310 content width). */
 .mac-cc-detail {
     width: 310px;
     padding: 12px;
     spacing: 2px;
-    border-radius: 22px;
-    background-color: transparent;
+    /* Must match the Liquid Glass toggle corner radius
+       (quick-settings-toggle-corner-radius = 32.5): the detail sheet is a
+       `quick-toggle` pod too, so a smaller radius made its corners stick out of
+       the glass and look broken. */
+    border-radius: 32.5px;
+    background-color: rgba(255, 255, 255, 0.08);
     background-image: none;
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: none;
     font-family: "SF UI Text", sans-serif;
     color: white;
+}
+/* Wi-Fi / Bluetooth lists live in a scroll view capped at a normal height, so a
+   long list scrolls instead of stretching the sheet beyond the screen. */
+.mac-panel-scroll {
+    max-height: 252px;
+}
+.mac-panel-scroll .vscrollbar {
+    width: 5px;
+    background-color: transparent;
+    background-image: none;
+}
+.mac-panel-scroll .vscrollbar .slider {
+    background-gradient-direction: vertical;
+    background-gradient-start: rgba(255, 255, 255, 0.40);
+    background-gradient-end: rgba(255, 255, 255, 0.32);
+    border-radius: 3px;
+    min-width: 3px;
 }
 .mac-panel-row {
     spacing: 10px;
@@ -435,16 +458,19 @@
     height: 22px;
     border-radius: 11px;
     background-gradient-direction: vertical;
-    background-gradient-start: rgba(255, 255, 255, 0.18);
-    background-gradient-end: rgba(255, 255, 255, 0.15);
+    /* Liquid Glass' ambient occlusion darkens anything sitting inside the pod,
+       so the old 0.18 alpha made the OFF track invisible (it read as a "dark"
+       pill). Keep the track clearly lighter than the glass for both states. */
+    background-gradient-start: rgba(255, 255, 255, 0.50);
+    background-gradient-end: rgba(255, 255, 255, 0.42);
     border: none;
     padding: 0;
     spacing: 0;
 }
 .mac-switch:checked {
     background-gradient-direction: vertical;
-    background-gradient-start: rgba(34, 156, 255, 0.92);
-    background-gradient-end: rgba(10, 132, 255, 0.90);
+    background-gradient-start: rgba(64, 170, 255, 0.98);
+    background-gradient-end: rgba(10, 132, 255, 0.96);
 }
 .mac-switch-knob {
     width: 18px;
