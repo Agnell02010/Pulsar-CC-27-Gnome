@@ -247,3 +247,58 @@
 }
 .mac-airplay:hover { background-color: rgba(255, 255, 255, 0.25); }
 .mac-airplay:active { background-color: rgba(255, 255, 255, 0.35); }
+
+/* -------- Detail panels (macOS 26 style) -------- */
+.mac-cc-detail {
+    padding: 22px;
+    spacing: 6px;
+    width: 310px;
+    font-family: "SF UI Text", sans-serif;
+}
+.mac-panel-row {
+    spacing: 8px;
+    padding: 6px 12px;
+}
+.mac-panel-item {
+    border-radius: 8px;
+    background-color: transparent;
+}
+.mac-panel-item:hover {
+    background-color: rgba(255,255,255,0.08);
+}
+.mac-panel-icon {
+    icon-size: 18px;
+    color: rgba(255,255,255,0.85);
+}
+.mac-panel-label {
+    font-size: 13px;
+    font-weight: 400;
+    color: white;
+}
+.mac-panel-sub {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.75);
+}
+.mac-panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: white;
+}
+.mac-panel-section {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.65);
+    padding: 4px 12px 2px 12px;
+}
+.mac-panel-sep {
+    height: 1px;
+    background-color: rgba(255,255,255,0.12);
+    margin: 4px 12px;
+}
+.mac-panel-header {
+    padding: 6px 12px;
+}
+.mac-panel-back .mac-panel-row {
+    padding: 4px 8px;
+}

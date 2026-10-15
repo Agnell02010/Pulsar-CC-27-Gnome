@@ -244,6 +244,33 @@ function detectLang() {
 }
 const UI_LANG = detectLang();
 
+
+// Helpers bridge for pannelli.js (view-swap panels)
+const HELPERS = {
+    global: {St, Clutter, Gio, GLib, Main},
+    icon,
+    symbol,
+    pivot,
+    bindPress,
+    pressDown,
+    pressUp,
+    pop,
+    animOn,
+    launch,
+    getAnim: () => _anim,
+    loadAnim,
+    ensureAnimFile,
+    asGlassToggle,
+    asGlassCircle,
+    asGlassSlider,
+    setOn,
+    wideTile,
+    circleButton,
+    sliderTile,
+    STRINGS,
+    tr,
+    UI_LANG,
+};
 // Text in the language of the PC. Gendered variants (onF/offF) fall back to
 // on/off, and any missing key falls back to English.
 function tr(key) {
@@ -588,7 +615,7 @@ function sliderTile(title, lowIcon, highIcon, onTrail) {
 
 /* ---------- extension ---------- */
 export default class MacControlCentre extends Extension {
-    enable() {
+    async enable() {
         ICON_DIR = `${this.path}/icons`;
         this._qs = Main.panel.statusArea.quickSettings;
         this._ids = [];
@@ -597,6 +624,16 @@ export default class MacControlCentre extends Extension {
         this._openGen = 0;      // invalidates the pending animation timers
         this._enterActors = [];
         ensureAnimFile();       // creates ~/.config/pulsar-cc/animazione.json
+        this._pan = null;
+        try {
+            const dir = this.path;
+            const uri = Gio.File.new_for_path(GLib.build_filenamev([dir, 'pannelli.js'])).get_uri();
+            const mod = await import(`${uri}?v=${Date.now()}`);
+            this._pan = mod.crea(this, HELPERS);
+        } catch (e) {
+            console.warn(`macos-cc: pannelli.js non caricato: ${e}`);
+            this._pan = null;
+        }
 
         this._ifaceSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
         this._notifSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.notifications'});
@@ -630,6 +667,8 @@ export default class MacControlCentre extends Extension {
                 // "pop"s never overlap the opening animation.
                 this._startEntrance();
                 this._refresh();
+            } else {
+                this._pan?.close();
             }
         })]);
         // Refreshes play/pause and the title as soon as the player changes state
@@ -652,6 +691,8 @@ export default class MacControlCentre extends Extension {
         for (const [obj, id] of this._ids ?? [])
             obj.disconnect(id);
         this._ids = [];
+        this._pan?.destroy();
+        this._pan = null;
         this._panel?.destroy();
         this._panel = null;
         try {
@@ -668,6 +709,22 @@ export default class MacControlCentre extends Extension {
      * The container (the "box pointer") already runs its own 150 ms animation
      * (fade + scale 0.96), so we do NOT touch it here: we only add the cascade
      * of the individual widgets, which is what MacOS does. */
+
+    _openPanel(kind) {
+        if (this._pan?.open(kind))
+            return true;
+        const fallback = {
+            wifi: 'gnome-control-center wifi',
+            bluetooth: 'gnome-control-center bluetooth',
+            sound: 'gnome-control-center sound',
+            display: 'gnome-control-center display',
+            focus: 'gnome-control-center notifications',
+        }[kind];
+        this._qs.menu.close();
+        if (fallback) launch(fallback);
+        return false;
+    }
+
     _startEntrance() {
         loadAnim();
         const gen = ++this._openGen;
@@ -750,15 +807,15 @@ export default class MacControlCentre extends Extension {
 
         this._wifi = wideTile('mc:wifi', 'Wi-Fi', '', '', 
             () => this._toggleWifi(), 
-            () => { this._qs.menu.close(); launch('gnome-control-center wifi'); }
+            () => this._openPanel('wifi')
         );
         this._bt = wideTile('mc:bluetooth', 'Bluetooth', '', '', 
             () => this._toggleBt(), 
-            () => { this._qs.menu.close(); launch('gnome-control-center bluetooth'); }
+            () => this._openPanel('bluetooth')
         );
         this._night = wideTile('mc:sun-horizon', tr('night'), '', '', 
             () => this._toggleNight(), 
-            () => { this._qs.menu.close(); launch('gnome-control-center display'); }
+            () => this._openPanel('display')
         );
         left.add_child(this._wifi);
         left.add_child(this._bt);
@@ -800,7 +857,7 @@ export default class MacControlCentre extends Extension {
         circles.add_child(this._shot);
         this._dnd = wideTile('mc:moon', tr('dnd'), '', '', 
             () => this._toggleDnd(), 
-            () => { this._qs.menu.close(); launch('gnome-control-center notifications'); }
+            () => this._openPanel('focus')
         );
         row4.add_child(circles);
         row4.add_child(this._dnd);
