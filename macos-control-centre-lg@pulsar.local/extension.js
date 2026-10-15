@@ -50,7 +50,7 @@ function setBacklight(name, value) {
             try {
                 c.call_finish(r);
             } catch (e) {
-                console.warn(`macos-cc: luminosita' non impostata: ${e}`);
+                console.warn(`macos-cc: brightness not set: ${e}`);
             }
         });
 }
@@ -85,7 +85,7 @@ function propSet(bus, name, path, iface, prop, variant) {
             try {
                 c.call_finish(r);
             } catch (e) {
-                console.warn(`macos-cc: Set ${prop} fallito: ${e}`);
+                console.warn(`macos-cc: Set ${prop} failed: ${e}`);
             }
         });
 }
@@ -360,7 +360,7 @@ function ensureAnimFile() {
             .join(',\n');
         GLib.file_set_contents(ANIM_PATH, `{\n${body}\n}\n`);
     } catch (e) {
-        console.warn(`macos-cc: impossibile creare ${ANIM_PATH}: ${e}`);
+        console.warn(`macos-cc: cannot create ${ANIM_PATH}: ${e}`);
     }
 }
 
@@ -498,8 +498,8 @@ function wideTile(iconName, title, subtitle, extraClass, onToggle, onMenu) {
         style_class: 'mac-tile-text-btn'
     });
     const texts = new St.BoxLayout({vertical: true, y_align: Clutter.ActorAlign.CENTER, x_expand: true});
-    const t = new St.Label({text: title, style_class: 'mac-title'});
-    const s = new St.Label({text: subtitle, style_class: 'mac-sub'});
+    const t = new St.Label({text: title, style_class: 'mac-title', reactive: false, can_focus: false});
+    const s = new St.Label({text: subtitle, style_class: 'mac-sub', reactive: false, can_focus: false});
     for (const l of [t, s])
         l.clutter_text.ellipsize = Pango.EllipsizeMode.END;
     texts.add_child(t);
@@ -558,7 +558,7 @@ function launch(cmd) {
     try {
         Gio.AppInfo.create_from_commandline(cmd, null, Gio.AppInfoCreateFlags.NONE).launch([], null);
     } catch (e) {
-        console.warn(`macos-cc: impossibile avviare ${cmd}: ${e}`);
+        console.warn(`macos-cc: cannot start ${cmd}: ${e}`);
     }
 }
 
@@ -631,7 +631,7 @@ export default class MacControlCentre extends Extension {
             const mod = await import(`${uri}?v=${Date.now()}`);
             this._pan = mod.crea(this, HELPERS);
         } catch (e) {
-            console.warn(`macos-cc: pannelli.js non caricato: ${e}`);
+            console.warn(`macos-cc: pannelli.js not loaded: ${e}`);
             this._pan = null;
         }
 
@@ -645,11 +645,24 @@ export default class MacControlCentre extends Extension {
 
         this._buildPanel();
 
-        // Removes the original Quick Settings content from the menu
+        // Removes the original Quick Settings content from the menu.
+        // IMPORTANT: Liquid Glass keeps a private glass host actor inside this
+        // very box (name 'liquid-glass-toggle-host') and re-asserts it as the
+        // bottom-most child every frame. If we remove it, that actor's parent no
+        // longer matches the box and the extension spams
+        // `clutter_actor_set_child_below_sibling` assertion failures, which kills
+        // the glass for the WHOLE menu. So we must leave that one alone.
         const box = this._qs.menu.box;
         this._removed = [];
-        box.get_children().forEach((child, i) => {
+        const kids = box.get_children();
+        kids.forEach((child, i) => {
             if (child === this._panel)
+                return;
+            let cname = '';
+            try { cname = (child.get_name && child.get_name()) || child.name || ''; } catch (e) {}
+            let cctor = '';
+            try { cctor = (child.constructor && child.constructor.name) || ''; } catch (e) {}
+            if (cname === 'liquid-glass-toggle-host' || cctor === 'LayoutOpaqueActor')
                 return;
             this._removed.push([child, i]);
             box.remove_child(child);
@@ -658,7 +671,7 @@ export default class MacControlCentre extends Extension {
         try {
             this._qs.menu.actor.translation_x = -SHIFT_LEFT;
         } catch (e) {
-            console.warn(`macos-cc: spostamento non riuscito: ${e}`);
+            console.warn(`macos-cc: shift failed: ${e}`);
         }
 
         this._ids.push([this._qs.menu, this._qs.menu.connect('open-state-changed', (_m, open) => {
@@ -1021,11 +1034,11 @@ export default class MacControlCentre extends Extension {
                             apply(cache);
                         }
                     } catch (e) {
-                        console.warn(`macos-cc: copertina non scaricata: ${e}`);
+                        console.warn(`macos-cc: album art not downloaded: ${e}`);
                     }
                 });
             } catch (e) {
-                console.warn(`macos-cc: copertina: ${e}`);
+                console.warn(`macos-cc: album art: ${e}`);
             }
         }
     }
@@ -1124,7 +1137,7 @@ export default class MacControlCentre extends Extension {
             if (sink)
                 this._sound.slider.value = Math.min(1, sink.volume / this._mixer.get_vol_max_norm());
         } catch (e) {
-            console.warn(`macos-cc: mixer non disponibile: ${e}`);
+            console.warn(`macos-cc: mixer unavailable: ${e}`);
         }
 
         this._building = false;
