@@ -395,9 +395,10 @@ export function crea(ext, h) {
         if (mainKids) for (const k of mainKids) { try { k.show(); } catch (e) {} }
     }
 
-    function open(kind) {
+    function open(kind, a) {
         try {
             if (closing) return true;
+            if (a) anchor = a;
             if (currentKind === kind && detailRoot && detailRoot.visible) { back(); return true; }
             gen++;
             const myGen = gen;

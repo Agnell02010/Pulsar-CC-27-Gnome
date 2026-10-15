@@ -726,8 +726,8 @@ export default class MacControlCentre extends Extension {
      * (fade + scale 0.96), so we do NOT touch it here: we only add the cascade
      * of the individual widgets, which is what MacOS does. */
 
-    _openPanel(kind) {
-        if (this._pan?.open(kind))
+    _openPanel(kind, anchor) {
+        if (this._pan?.open(kind, anchor))
             return true;
         const fallback = {
             wifi: 'gnome-control-center wifi',
@@ -823,15 +823,15 @@ export default class MacControlCentre extends Extension {
 
         this._wifi = wideTile('mc:wifi', 'Wi-Fi', '', '', 
             () => this._toggleWifi(), 
-            () => this._openPanel('wifi')
+            () => { try { this._pan && (this._pan._anchor = this._wifi); } catch (e) {}; this._openPanel('wifi'); }
         );
         this._bt = wideTile('mc:bluetooth', 'Bluetooth', '', '', 
             () => this._toggleBt(), 
-            () => this._openPanel('bluetooth')
+            () => { try { this._pan && (this._pan._anchor = this._bt); } catch (e) {}; this._openPanel('bluetooth'); }
         );
         this._night = wideTile('mc:sun-horizon', tr('night'), '', '', 
             () => this._toggleNight(), 
-            () => this._openPanel('display')
+            () => { try { this._pan && (this._pan._anchor = this._night); } catch (e) {}; this._openPanel('display'); }
         );
         left.add_child(this._wifi);
         left.add_child(this._bt);
@@ -873,7 +873,7 @@ export default class MacControlCentre extends Extension {
         circles.add_child(this._shot);
         this._dnd = wideTile('mc:moon', tr('dnd'), '', '', 
             () => this._toggleDnd(), 
-            () => this._openPanel('focus')
+            () => { try { this._pan && (this._pan._anchor = this._dnd); } catch (e) {}; this._openPanel('focus'); }
         );
         row4.add_child(circles);
         row4.add_child(this._dnd);
