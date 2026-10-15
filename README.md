@@ -121,12 +121,14 @@ The extension reproduces MacOS-style animations:
 |---|---|
 | **Cascading open** | when the panel opens, the tiles arrive one after another from left to right: they start slightly smaller, overshoot the final size a little and then settle (liquid effect) |
 | **Press** | tiles, circles, player buttons and AirPlay compress **the moment you press them** (not on release) and come back with a soft bounce, plus a slight vertical squash |
+| **Activation spring** | on click the whole pill (bubble included) or the circle rises in one continuous motion, right at the moment you release, and then settles. Off by default: enable it with `popScale: 1.12` |
 | **Play/Pause** | the glyph changes with a crossfade |
 | **Slider** | the volume/brightness tile lifts slightly while you drag the slider (as before) |
 
-> 💡 The bubbles inside the pills **no longer** bounce on their own: they move
+> 💡 The bubbles inside the pills **never** bounce on their own: they move
 > together with the pill, as if they were a single piece (no double bounce).
-> If you prefer the old "pop", set `"popScale": 1.12` in the file below.
+> The optional activation spring (`"popScale": 1.12`) moves the whole pill, in
+> a single motion that starts at the click — never at the base size in between.
 
 > ⚠️ GNOME (St) **does not support CSS animations**, so they are written in
 > JavaScript. The first time you install this version you need **one logout**
@@ -160,10 +162,9 @@ an error, the defaults are used (nothing can break).
     "pressUp": 260,           // time to come back, with bounce (ms)
     "pressOvershoot": 1.02,   // comes back slightly past the final size
 
-    "popScale": 1.0,          // 1.0 = off; 1.12 = the old bubble "pop"
+    "popScale": 1.0,          // 1.0 = off; 1.12 = activation spring on click
     "popDown": 110,
     "popUp": 230,
-    "popDelay": 120,          // waits for the press to finish (ms)
 
     "iconOut": 80,            // play→pause: glyph out (ms)
     "iconIn": 200,            // play→pause: glyph in (ms)
@@ -181,7 +182,7 @@ Quick examples:
 - **even more "liquid"**: `enterOvershoot: 1.04`, `pressSquash: 0.05`
 - **no bounce** (crisp movement): `pressUp: 120`, `pressOvershoot: 1.0`, `enterOvershoot: 1.0`
 - **no squash** (uniform compression): `pressSquash: 0`
-- **bring back the old bubble pop**: `popScale: 1.12`
+- **MacOS-like activation spring**: `popScale: 1.12` (one single motion, starting at the click)
 - everything off: `enabled: false`
 
 A copy of the file is also in [`animazione-esempio.json`](animazione-esempio.json).

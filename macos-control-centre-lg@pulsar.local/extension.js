@@ -286,13 +286,12 @@ const ANIM_DEFAULT = {
     pressUp: 260,         // time to come back up (ms)
     pressOvershoot: 1.02, // comes back slightly past the final size
 
-    // Extra "pop" when a widget changes state WITHOUT being pressed.
-    // 1.0 = off: the bubbles inside the pills stay attached to the
-    // pill (no double bounce). Set 1.12 to turn it back on.
+    // Extra "activation" spring, right on the click: the widget rises to
+    // popScale and settles back. 1.0 = off. On the pills the spring moves the
+    // WHOLE pill: the bubble is never animated on its own (no double bounce).
     popScale: 1.0,
     popDown: 110,
     popUp: 230,
-    popDelay: 120,       // waits for the press to finish (ms)
 
     // Play/pause: crossfade of the glyph
     iconOut: 80,
@@ -358,6 +357,7 @@ function pressDown(a) {
     if (!animOn(a))
         return;
     a._macPressed = true;
+    a._macPopSyncPending = false;   // new interaction: the next click may spring
     try {
         a.ease({
             scale_x: _anim.pressScale,
@@ -408,33 +408,32 @@ function bindPress(w, target = w) {
     });
 }
 
-// Small "pop" when a widget changes state (bubbles / circles).
-function pop(a, delay = _anim.popDelay) {
-    // popScale 1 = off (default: the bubbles follow the pill)
+// "Activation" spring of a widget. It starts from wherever the actor currently
+// is (usually the pressed size), rises up to popScale and settles back to 1.0:
+// ONE continuous motion, with no stop at the base size in between.
+// It is started by the CLICK, so it begins exactly at the release instant, and
+// the state sync that follows (the D-Bus answer) is recognised as its "echo"
+// thanks to _macPopSyncPending: that way the spring never plays twice.
+function pop(a) {
+    // popScale 1 = off
     if (_anim.popScale === 1 || !animOn(a))
         return;
-    const go = () => {
-        if (a._macEntering)   // skip if the entrance restarted in the meantime
-            return;
-        try {
-            a.ease({
-                scale_x: _anim.popScale,
-                scale_y: _anim.popScale,
-                duration: _anim.popDown,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                onComplete: () => a.ease({
-                    scale_x: 1,
-                    scale_y: 1,
-                    duration: _anim.popUp,
-                    mode: Clutter.AnimationMode.EASE_OUT_BACK,
-                }),
-            });
-        } catch (e) { /* actor already destroyed */ }
-    };
-    if (delay > 0)
-        later(delay, go);
-    else
-        go();
+    if (a._macEntering)   // do not fight the entrance cascade
+        return;
+    try {
+        a.ease({
+            scale_x: _anim.popScale,
+            scale_y: _anim.popScale,
+            duration: _anim.popDown,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => a.ease({
+                scale_x: 1,
+                scale_y: 1,
+                duration: _anim.popUp,
+                mode: Clutter.AnimationMode.EASE_OUT_BACK,
+            }),
+        });
+    } catch (e) { /* actor already destroyed */ }
 }
 
 // Wide tile with an icon circle (toggle) and a text area (menu)
@@ -456,7 +455,12 @@ function wideTile(iconName, title, subtitle, extraClass, onToggle, onMenu) {
     });
     // Compresses as soon as you press it (bubble or text), not on release.
     bindPress(bubble, btn);
-    bubble.connect('clicked', () => onToggle?.());
+    // On activation the WHOLE pill springs: bubble and pill move as one piece.
+    bubble.connect('clicked', () => {
+        btn._macPopSyncPending = true;   // the following sync is the echo
+        pop(btn);
+        onToggle?.();
+    });
 
     // The text part opens the settings menu
     const textBtn = new St.Button({
@@ -495,20 +499,32 @@ function circleButton(iconName, extraClass, onClick) {
         child: icon(iconName),
     });
     bindPress(btn);
-    btn.connect('clicked', () => onClick?.());
+    // The activation spring starts right at the release instant, instead of
+    // waiting for the D-Bus state sync to come back.
+    btn.connect('clicked', () => {
+        btn._macPopSyncPending = true;   // the following sync is the echo
+        pop(btn);
+        onClick?.();
+    });
     pivot(btn);
     return asGlassCircle(btn);
 }
 
-function setOn(widget, on) {
+function setOn(widget, on, popTarget = widget) {
     const was = widget.has_style_pseudo_class('checked');
     if (on)
         widget.add_style_pseudo_class('checked');
     else
         widget.remove_style_pseudo_class('checked');
-    // Only when the state REALLY changed: no pop on every sync.
-    if (was !== on)
-        pop(widget);
+    // Only when the state REALLY changed: no pop on every sync. popTarget is
+    // the whole pill on the wide tiles (the bubble is only its indicator).
+    if (was === on)
+        return;
+    if (popTarget._macPopSyncPending) {
+        popTarget._macPopSyncPending = false;   // echo of the click: already sprung
+        return;
+    }
+    pop(popTarget);
 }
 
 function launch(cmd) {
@@ -1010,20 +1026,20 @@ export default class MacControlCentre extends Extension {
 
         propGet(Gio.DBus.system, 'org.freedesktop.NetworkManager', '/org/freedesktop/NetworkManager',
             'org.freedesktop.NetworkManager', 'WirelessEnabled', on => {
-                setOn(this._wifi._bubble, !!on); // Uses _bubble instead of the whole tile!
+                setOn(this._wifi._bubble, !!on, this._wifi); // Uses _bubble instead of the whole tile!
                 this._wifi._sub.text = on ? tr('on') : tr('off');
             });
         propGet(Gio.DBus.system, 'org.bluez', '/org/bluez/hci0', 'org.bluez.Adapter1', 'Powered', on => {
-            setOn(this._bt._bubble, !!on);
+            setOn(this._bt._bubble, !!on, this._bt);
             this._bt._sub.text = on ? tr('on') : tr('off');
         });
 
         const night = this._colorSettings?.get_boolean('night-light-enabled') ?? false;
-        setOn(this._night._bubble, night);
+        setOn(this._night._bubble, night, this._night);
         this._night._sub.text = night ? tr('onF') : tr('offF');
 
         const dnd = !this._notifSettings.get_boolean('show-banners');
-        setOn(this._dnd._bubble, dnd);
+        setOn(this._dnd._bubble, dnd, this._dnd);
         this._dnd._sub.text = dnd ? tr('on') : tr('off');
         
         // Syncs the dark mode state
