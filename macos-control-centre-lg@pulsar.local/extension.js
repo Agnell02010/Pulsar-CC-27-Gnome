@@ -178,20 +178,29 @@ const ANIM_PATH = GLib.build_filenamev([
 const ANIM_DEFAULT = {
     enabled: true,
 
-    // Entrata: le tessere arrivano in cascata quando apri il pannello
-    enterBase: 30,       // ritardo iniziale (ms)
-    enterStep: 18,       // distanza fra due tessere consecutive (ms)
-    enterDuration: 240,  // durata di ciascuna (ms)
-    enterScale: 0.96,    // scala di partenza (1 = solo dissolvenza)
-    enterRise: 4,        // da quanti px verso l'alto partono (0 = niente)
+    // Entrata: le tessere arrivano in cascata quando apri il pannello.
+    // L'arrivo e' in due tempi: prima oltrepassano di poco la dimensione
+    // finale (enterOvershoot), poi si assestano -> effetto "liquido".
+    enterBase: 20,        // ritardo iniziale (ms)
+    enterStep: 20,        // distanza fra due tessere consecutive (ms)
+    enterDuration: 280,   // durata dell'arrivo (ms)
+    enterSettle: 150,     // durata dell'assestamento finale (ms)
+    enterScale: 0.90,     // scala di partenza (1 = solo dissolvenza)
+    enterRise: 8,         // da quanti px verso l'alto partono (0 = niente)
+    enterOvershoot: 1.02, // di quanto "sorpassano" prima di assestarsi
 
-    // Pressione: il widget si schiaccia e torna su con un elastico
-    pressScale: 0.94,
-    pressDown: 80,       // tempo per schiacciarsi (ms)
-    pressUp: 240,        // tempo per tornare su, con rimbalzo (ms)
+    // Pressione: si comprime APPENA premi (non al rilascio) e torna su con
+    // un rimbalzo morbido.
+    pressScale: 0.94,     // quanto si comprime
+    pressSquash: 0.03,    // schiacciamento extra in verticale (0 = uniforme)
+    pressDown: 90,        // tempo per schiacciarsi (ms)
+    pressUp: 260,         // tempo per tornare su (ms)
+    pressOvershoot: 1.02, // torna su passando leggermente oltre
 
-    // Bolle/cerchi quando cambiano stato: piccolo "pop"
-    popScale: 1.12,
+    // "Pop" extra quando un widget cambia stato SENZA essere premuto.
+    // 1.0 = spento: i pallini dentro le pillole restano attaccati alla
+    // pillola (nessun doppio rimbalzo). Metti 1.12 per riaccenderlo.
+    popScale: 1.0,
     popDown: 110,
     popUp: 230,
     popDelay: 120,       // aspetta che finisca la pressione (ms)
@@ -248,35 +257,72 @@ function pivot(a) {
     } catch (e) { /* ignora */ }
 }
 
-// Regola generale: niente animazioni se sono disattivate o se il widget sta
-// ancora entrando in scena (altrimenti le due transizioni si cancellano).
-function canAnimate(a) {
-    return !!a && _anim.enabled && !a._macEntering;
+// Regola generale: niente animazioni se sono disattivate.
+function animOn(a) {
+    return !!a && _anim.enabled;
 }
 
-// Pressione: compressione rapida + ritorno elastico.
-// Ogni sequenza finisce SEMPRE a scala 1: così anche se due animazioni si
-// sovrappongono, il risultato finale è sempre corretto.
-function press(a) {
-    if (!canAnimate(a))
+/* Pressione. Ogni sequenza finisce SEMPRE a scala 1: cosi' anche se due
+ * animazioni si sovrappongono il risultato finale e' sempre corretto. */
+
+function pressDown(a) {
+    if (!animOn(a))
         return;
-    a.ease({
-        scale_x: _anim.pressScale,
-        scale_y: _anim.pressScale,
-        duration: _anim.pressDown,
-        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        onComplete: () => a.ease({
-            scale_x: 1,
-            scale_y: 1,
-            duration: _anim.pressUp,
-            mode: Clutter.AnimationMode.EASE_OUT_BACK,
-        }),
+    a._macPressed = true;
+    try {
+        a.ease({
+            scale_x: _anim.pressScale,
+            // Un filo piu' schiacciata in verticale: e' quello che rende la
+            // pressione "liquida" invece che un semplice ridimensionamento.
+            scale_y: _anim.pressScale - _anim.pressSquash,
+            duration: _anim.pressDown,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+    } catch (e) { /* attore gia' distrutto */ }
+}
+
+function pressUp(a) {
+    if (!animOn(a))
+        return;
+    a._macPressed = false;
+    const half = Math.max(1, Math.round(_anim.pressUp / 2));
+    try {
+        a.ease({
+            scale_x: _anim.pressOvershoot,
+            scale_y: _anim.pressOvershoot,
+            duration: half,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => a.ease({
+                scale_x: 1,
+                scale_y: 1,
+                duration: Math.max(1, _anim.pressUp - half),
+                mode: Clutter.AnimationMode.EASE_OUT_SINE,
+            }),
+        });
+    } catch (e) { /* attore gia' distrutto */ }
+}
+
+// Collega un bottone: si comprime APPENA lo premi e torna su quando lasci.
+// St.Button espone la proprieta' "pressed" (gestita da un ClutterPressGesture,
+// quindi vale anche per touch e tastiera) e la notifica quando cambia: e'
+// esattamente l'istante della pressione, non del rilascio.
+// "w" riceve la pressione, "target" e' quello che si anima (per le pillole:
+// premi il pallino, si comprime tutta la pillola).
+function bindPress(w, target = w) {
+    if (!(w instanceof St.Button))
+        return;
+    w.connect('notify::pressed', () => {
+        if (w.pressed)
+            pressDown(target);
+        else
+            pressUp(target);
     });
 }
 
 // Piccolo "pop" quando un widget cambia stato (bolle / cerchi).
 function pop(a, delay = _anim.popDelay) {
-    if (!canAnimate(a))
+    // popScale 1 = spento (comportamento predefinito: i pallini seguono la pillola)
+    if (_anim.popScale === 1 || !animOn(a))
         return;
     const go = () => {
         if (a._macEntering)   // se intanto è ripartita l'entrata, salto
@@ -319,10 +365,9 @@ function wideTile(iconName, title, subtitle, extraClass, onToggle, onMenu) {
         reactive: true,
         child: icon(iconName),
     });
-    bubble.connect('clicked', () => {
-        press(btn);
-        onToggle?.();
-    });
+    // Si comprime appena premi (pallino o testo), non al rilascio.
+    bindPress(bubble, btn);
+    bubble.connect('clicked', () => onToggle?.());
 
     // La parte col testo apre il menù delle impostazioni
     const textBtn = new St.Button({
@@ -340,10 +385,8 @@ function wideTile(iconName, title, subtitle, extraClass, onToggle, onMenu) {
     texts.add_child(t);
     texts.add_child(s);
     textBtn.set_child(texts);
-    textBtn.connect('clicked', () => {
-        press(btn);
-        onMenu?.();
-    });
+    bindPress(textBtn, btn);
+    textBtn.connect('clicked', () => onMenu?.());
 
     row.add_child(bubble);
     row.add_child(textBtn);
@@ -362,10 +405,8 @@ function circleButton(iconName, extraClass, onClick) {
         reactive: true,
         child: icon(iconName),
     });
-    btn.connect('clicked', () => {
-        press(btn);
-        onClick?.();
-    });
+    bindPress(btn);
+    btn.connect('clicked', () => onClick?.());
     pivot(btn);
     return asGlassCircle(btn);
 }
@@ -402,7 +443,7 @@ function sliderTile(title, lowIcon, highIcon, onTrail) {
     // non è un attore a sé: ingrandirlo durante il drag sposterebbe anche la
     // mappatura del valore, quindi non lo facciamo.)
     slider.connect('drag-begin', () => {
-        if (!canAnimate(box))
+        if (!animOn(box))
             return;
         box.ease({
             scale_x: _anim.sliderLift,
@@ -431,10 +472,8 @@ function sliderTile(title, lowIcon, highIcon, onTrail) {
             reactive: true,
             child: icon('mc:airplay', 'mac-small'),
         });
-        trail.connect('clicked', () => {
-            press(trail);
-            onTrail();
-        });
+        bindPress(trail);
+        trail.connect('clicked', () => onTrail());
         row.add_child(trail);
     }
     box.add_child(row);
@@ -534,6 +573,7 @@ export default class MacControlCentre extends Extension {
                 if (!a)
                     continue;
                 a._macEntering = false;
+                a._macPressed = false;
                 try {
                     a.remove_all_transitions();
                     a.opacity = 255;
@@ -549,11 +589,12 @@ export default class MacControlCentre extends Extension {
             if (!a)
                 return;
             a._macEntering = true;
+            a._macPressed = false;   // se il pannello si e' chiuso mentre era premuto
             try {
                 a.remove_all_transitions();
                 a.opacity = 0;
-                a.scale_x = 1;
-                a.scale_y = 1;
+                a.scale_x = _anim.enterScale;
+                a.scale_y = _anim.enterScale;
                 a.translation_y = -_anim.enterRise;
             } catch (e) {
                 a._macEntering = false;
@@ -568,13 +609,25 @@ export default class MacControlCentre extends Extension {
                     // animazione tocca, quindi _macEntering viene sempre
                     // azzerato (anche se nel frattempo premi una tessera).
                     opacity: 255,
-                    scale_x: 1,
-                    scale_y: 1,
+                    scale_x: _anim.enterOvershoot,
+                    scale_y: _anim.enterOvershoot,
                     translation_y: 0,
                     duration: _anim.enterDuration,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                     onComplete: () => {
                         a._macEntering = false;
+                        // Secondo tempo: assestamento morbido (il "rimbalzino"
+                        // dell'arrivo). Saltato se nel frattempo stai premendo:
+                        // in quel caso comanda la pressione, che comunque
+                        // finisce a scala 1.
+                        if (a._macPressed)
+                            return;
+                        a.ease({
+                            scale_x: 1,
+                            scale_y: 1,
+                            duration: _anim.enterSettle,
+                            mode: Clutter.AnimationMode.EASE_OUT_SINE,
+                        });
                     },
                 });
             });
@@ -742,8 +795,8 @@ export default class MacControlCentre extends Extension {
                 can_focus: true,
             });
             pivot(b);
+            bindPress(b);
             b.connect('clicked', () => {
-                press(b);
                 findPlayer(p => {
                     if (!p)
                         return;

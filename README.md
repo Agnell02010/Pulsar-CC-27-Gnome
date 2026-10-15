@@ -119,11 +119,14 @@ L'estensione replica le animazioni in stile macOS:
 
 | Animazione | Cosa fa |
 |---|---|
-| **Apertura a cascata** | all'apertura le tessere entrano una dopo l'altra (fade + mini-zoom), da sinistra a destra |
-| **Pressione** | quando schiacci una tessera/un cerchio/un tasto del lettore, si comprime e torna su con un rimbalzo elastico |
-| **Pop di stato** | la bolla (o il cerchio) fa un piccolo "pop" quando passa da off a on |
+| **Apertura a cascata** | all'apertura le tessere entrano una dopo l'altra da sinistra a destra: arrivano un po' più piccole, "sorpassano" di poco la dimensione finale e poi si assestano (effetto liquido) |
+| **Pressione** | le tessere, i cerchi, i tasti del lettore e AirPlay si comprimono **appena li premi** (non al rilascio) e tornano su con un rimbalzo morbido, con un piccolo schiacciamento verticale |
 | **Play/Pausa** | il glifo cambia con una dissolvenza incrociata |
-| **Slider** | la tessera si solleva leggermente mentre trascini lo slider |
+| **Slider** | la tessera di volume/luminosità si solleva leggermente mentre trascini lo slider (come già prima) |
+
+> 💡 I pallini dentro le pillole **non** fanno più un rimbalzo a parte: si muovono
+> insieme alla pillola, come se fossero un pezzo unico (niente doppio rimbalzo).
+> Se preferisci il vecchio "pop", metti `"popScale": 1.12` nel file qui sotto.
 
 > ⚠️ GNOME (St) **non supporta le animazioni in CSS**, quindi sono scritte in
 > JavaScript. La prima volta che installi questa versione serve **un logout**
@@ -144,17 +147,21 @@ si usano i valori predefiniti (nessun rischio).
 {
     "enabled": true,          // false = nessuna animazione
 
-    "enterBase": 30,          // ritardo iniziale della cascata (ms)
-    "enterStep": 18,          // distanza fra due tessere (ms)  ← il "ritmo"
-    "enterDuration": 240,     // durata dell'entrata (ms)
-    "enterScale": 0.96,       // da che scala parte (1 = solo dissolvenza)
-    "enterRise": 4,           // di quanti px scende dall'alto (0 = niente)
+    "enterBase": 20,          // ritardo iniziale della cascata (ms)
+    "enterStep": 20,          // distanza fra due tessere (ms)  ← il "ritmo"
+    "enterDuration": 280,     // durata dell'arrivo (ms)
+    "enterSettle": 150,       // durata dell'assestamento finale (ms)
+    "enterScale": 0.90,       // da che scala parte (1 = solo dissolvenza)
+    "enterRise": 8,           // di quanti px scende dall'alto (0 = niente)
+    "enterOvershoot": 1.02,   // di quanto "sorpassa" prima di assestarsi
 
     "pressScale": 0.94,       // quanto si schiaccia premendo
-    "pressDown": 80,          // tempo per schiacciarsi (ms)
-    "pressUp": 240,           // tempo per tornare su, col rimbalzo (ms)
+    "pressSquash": 0.03,      // schiacciamento extra in verticale (0 = uniforme)
+    "pressDown": 90,          // tempo per schiacciarsi (ms)
+    "pressUp": 260,           // tempo per tornare su, col rimbalzo (ms)
+    "pressOvershoot": 1.02,   // torna su passando leggermente oltre
 
-    "popScale": 1.12,         // quanto si allarga la bolla al cambio stato
+    "popScale": 1.0,          // 1.0 = spento; 1.12 = vecchio "pop" della bolla
     "popDown": 110,
     "popUp": 230,
     "popDelay": 120,          // aspetta che finisca la pressione (ms)
@@ -172,7 +179,10 @@ Esempi rapidi:
 
 - cascata più lenta e "di lusso": `enterStep: 30`, `enterDuration: 320`
 - più secca/istantanea (stile macOS): `enterStep: 12`, `enterDuration: 180`
-- niente rimbalzo: `pressUp: 120`
+- **ancora più "liquida"**: `enterOvershoot: 1.04`, `pressSquash: 0.05`
+- **niente rimbalzo** (movimento netto): `pressUp: 120`, `pressOvershoot: 1.0`, `enterOvershoot: 1.0`
+- **niente schiacciamento** (compressione uniforme): `pressSquash: 0`
+- **rientro del vecchio pop** sulle bolle: `popScale: 1.12`
 - tutto spento: `enabled: false`
 
 Una copia del file è anche in [`animazione-esempio.json`](animazione-esempio.json).
