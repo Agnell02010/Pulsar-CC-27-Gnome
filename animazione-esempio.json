@@ -1,0 +1,25 @@
+{
+    "enabled": true,
+
+    "enterBase": 30,
+    "enterStep": 18,
+    "enterDuration": 240,
+    "enterScale": 0.96,
+    "enterRise": 4,
+
+    "pressScale": 0.94,
+    "pressDown": 80,
+    "pressUp": 240,
+
+    "popScale": 1.12,
+    "popDown": 110,
+    "popUp": 230,
+    "popDelay": 120,
+
+    "iconOut": 80,
+    "iconIn": 200,
+
+    "sliderLift": 1.02,
+    "sliderUp": 140,
+    "sliderDown": 240
+}

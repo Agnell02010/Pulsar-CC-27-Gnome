@@ -23,6 +23,7 @@ Realizzato da **[Agnell02010](https://github.com/Agnell02010)**.
 | **Icone** | set di icone SF Symbol, normalizzate 1:1 con macOS |
 | **Font** | San Francisco (`SF UI Text`) |
 | **Vetro** | Liquid Glass applicato a ogni elemento del pannello |
+| **Animazioni** | apertura a cascata, pressione elastica, pop di stato, crossfade play/pausa — regolabili senza logout |
 
 ---
 
@@ -112,6 +113,72 @@ quick-settings-glass-expand=0            # il vetro NON deve sbordare dal pannel
 
 ---
 
+## 🎬 Animazioni (e come regolarle senza logout)
+
+L'estensione replica le animazioni in stile macOS:
+
+| Animazione | Cosa fa |
+|---|---|
+| **Apertura a cascata** | all'apertura le tessere entrano una dopo l'altra (fade + mini-zoom), da sinistra a destra |
+| **Pressione** | quando schiacci una tessera/un cerchio/un tasto del lettore, si comprime e torna su con un rimbalzo elastico |
+| **Pop di stato** | la bolla (o il cerchio) fa un piccolo "pop" quando passa da off a on |
+| **Play/Pausa** | il glifo cambia con una dissolvenza incrociata |
+| **Slider** | la tessera si solleva leggermente mentre trascini lo slider |
+
+> ⚠️ GNOME (St) **non supporta le animazioni in CSS**, quindi sono scritte in
+> JavaScript. La prima volta che installi questa versione serve **un logout**
+> (una volta sola).
+
+**Per regolarle NON serve più fare logout.** Alla prima accensione viene creato
+questo file:
+
+```
+~/.config/pulsar-cc/animazione.json
+```
+
+viene **riletto a ogni apertura** del Centro di controllo: modifichi un numero,
+riapri il pannello e vedi subito l'effetto. Se il file è assente o ha un errore,
+si usano i valori predefiniti (nessun rischio).
+
+```jsonc
+{
+    "enabled": true,          // false = nessuna animazione
+
+    "enterBase": 30,          // ritardo iniziale della cascata (ms)
+    "enterStep": 18,          // distanza fra due tessere (ms)  ← il "ritmo"
+    "enterDuration": 240,     // durata dell'entrata (ms)
+    "enterScale": 0.96,       // da che scala parte (1 = solo dissolvenza)
+    "enterRise": 4,           // di quanti px scende dall'alto (0 = niente)
+
+    "pressScale": 0.94,       // quanto si schiaccia premendo
+    "pressDown": 80,          // tempo per schiacciarsi (ms)
+    "pressUp": 240,           // tempo per tornare su, col rimbalzo (ms)
+
+    "popScale": 1.12,         // quanto si allarga la bolla al cambio stato
+    "popDown": 110,
+    "popUp": 230,
+    "popDelay": 120,          // aspetta che finisca la pressione (ms)
+
+    "iconOut": 80,            // play→pausa: uscita del glifo (ms)
+    "iconIn": 200,            // play→pausa: entrata del glifo (ms)
+
+    "sliderLift": 1.02,       // quanto si solleva la tessera trascinando
+    "sliderUp": 140,
+    "sliderDown": 240
+}
+```
+
+Esempi rapidi:
+
+- cascata più lenta e "di lusso": `enterStep: 30`, `enterDuration: 320`
+- più secca/istantanea (stile macOS): `enterStep: 12`, `enterDuration: 180`
+- niente rimbalzo: `pressUp: 120`
+- tutto spento: `enabled: false`
+
+Una copia del file è anche in [`animazione-esempio.json`](animazione-esempio.json).
+
+---
+
 ## 🗑️ Disinstallazione
 
 ```bash
@@ -128,7 +195,7 @@ esci e rientra.
 ```
 .
 ├── macos-control-centre-lg@pulsar.local/   # l'estensione GNOME
-│   ├── extension.js                        # logica (pannello, MPRIS, luminosità…)
+│   ├── extension.js                        # logica (pannello, MPRIS, luminosità, animazioni…)
 │   ├── stylesheet.css                      # tutto lo stile (tessere, cerchi, slider)
 │   ├── metadata.json
 │   ├── icons/                              # icone SVG in stile SF Symbol
@@ -139,6 +206,7 @@ esci e rientra.
 │   └── applica-profilo.sh
 ├── install.sh
 ├── uninstall.sh
+├── animazione-esempio.json                 # esempio dei parametri animazioni
 ├── LICENSE
 └── README.md
 ```

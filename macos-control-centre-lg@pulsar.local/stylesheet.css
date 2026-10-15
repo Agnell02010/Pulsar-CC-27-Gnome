@@ -64,19 +64,22 @@
    non la tocca e il pallino sopravvive. Le PNG sono quadrati bianchi con la
    trasparenza giusta, ritagliati a cerchio dal border-radius del widget.
    (Strada scelta perché anche la copertina del lettore usa url("file://...")
-   e funziona.) */
+   e funziona.) I percorsi sono RELATIVI al CSS di proposito: St li risolve
+   rispetto alla cartella dell'estensione, quindi l'estensione funziona in
+   qualunque home (non mettere percorsi assoluti /home/... o si rompe per gli
+   altri). */
 .mac-bubble {
     width: 38px;
     height: 38px;
     border-radius: 119px;
-    background-image: url("file:///home/agnell0/.local/share/gnome-shell/extensions/macos-control-centre-lg@pulsar.local/bubble-off.png");
+    background-image: url("bubble-off.png");
     color: white;
 }
 .mac-bubble:hover {
-    background-image: url("file:///home/agnell0/.local/share/gnome-shell/extensions/macos-control-centre-lg@pulsar.local/bubble-hover.png");
+    background-image: url("bubble-hover.png");
 }
 .mac-bubble:checked, .mac-bubble:active {
-    background-image: url("file:///home/agnell0/.local/share/gnome-shell/extensions/macos-control-centre-lg@pulsar.local/bubble-on.png");
+    background-image: url("bubble-on.png");
     color: black;
 }
 .mac-bubble:checked .mac-icon, .mac-bubble:active .mac-icon { color: black; }
@@ -112,10 +115,10 @@
    (altrimenti il vetro azzererebbe il background-color). Da spento resta il
    vetro del pulsante; da acceso appare il cerchio bianco pieno come su macOS. */
 .mac-circle:hover {
-    background-image: url("file:///home/agnell0/.local/share/gnome-shell/extensions/macos-control-centre-lg@pulsar.local/circle-hover.png");
+    background-image: url("circle-hover.png");
 }
 .mac-circle:checked, .mac-circle:active {
-    background-image: url("file:///home/agnell0/.local/share/gnome-shell/extensions/macos-control-centre-lg@pulsar.local/circle-on.png");
+    background-image: url("circle-on.png");
     border-color: white;
     color: black;
 }

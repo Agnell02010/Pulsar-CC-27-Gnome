@@ -163,6 +163,145 @@ function asGlassCircle(widget) {
 // a ogni ricampionamento dei colori.
 const LG_OVERRIDE = 'background-color: transparent !important;';
 
+/* ---------- animazioni (stile macOS / Liquid Glass) ----------
+ * Attenzione: St (il CSS di GNOME) NON supporta le transizioni CSS
+ * (l'ho verificato in st-theme-node.c: non esistono "transition" né
+ * "animation"), quindi ogni animazione va fatta in JS con actor.ease().
+ *
+ * Durate e intensità vivono in ~/.config/pulsar-cc/animazione.json, che viene
+ * RILETTO a ogni apertura del Centro di controllo: per ritoccare un numero
+ * basta modificare quel file e riaprire il pannello, SENZA logout.
+ * Il file viene creato automaticamente al primo avvio. */
+const ANIM_PATH = GLib.build_filenamev([
+    GLib.get_user_config_dir(), 'pulsar-cc', 'animazione.json']);
+
+const ANIM_DEFAULT = {
+    enabled: true,
+
+    // Entrata: le tessere arrivano in cascata quando apri il pannello
+    enterBase: 30,       // ritardo iniziale (ms)
+    enterStep: 18,       // distanza fra due tessere consecutive (ms)
+    enterDuration: 240,  // durata di ciascuna (ms)
+    enterScale: 0.96,    // scala di partenza (1 = solo dissolvenza)
+    enterRise: 4,        // da quanti px verso l'alto partono (0 = niente)
+
+    // Pressione: il widget si schiaccia e torna su con un elastico
+    pressScale: 0.94,
+    pressDown: 80,       // tempo per schiacciarsi (ms)
+    pressUp: 240,        // tempo per tornare su, con rimbalzo (ms)
+
+    // Bolle/cerchi quando cambiano stato: piccolo "pop"
+    popScale: 1.12,
+    popDown: 110,
+    popUp: 230,
+    popDelay: 120,       // aspetta che finisca la pressione (ms)
+
+    // Play/pausa: dissolvenza incrociata del glifo
+    iconOut: 80,
+    iconIn: 200,
+
+    // Sliders: si sollevano leggermente mentre li trascini
+    sliderLift: 1.02,
+    sliderUp: 140,
+    sliderDown: 240,
+};
+
+let _anim = {...ANIM_DEFAULT};
+
+// (Ri)legge i parametri dal file. Chiamato a ogni apertura del pannello.
+function loadAnim() {
+    _anim = {...ANIM_DEFAULT};
+    try {
+        const [, bytes] = GLib.file_get_contents(ANIM_PATH);
+        const json = JSON.parse(new TextDecoder().decode(bytes));
+        for (const k of Object.keys(ANIM_DEFAULT)) {
+            // Accetta solo valori dello stesso tipo: un refuso non rovina nulla.
+            if (typeof json[k] === typeof ANIM_DEFAULT[k])
+                _anim[k] = json[k];
+        }
+    } catch (e) {
+        // file assente o malformato: restano i valori predefiniti
+    }
+    return _anim;
+}
+
+// Crea il file di configurazione se non esiste (non sovrascrive i tuoi cambi).
+function ensureAnimFile() {
+    try {
+        if (GLib.file_test(ANIM_PATH, GLib.FileTest.EXISTS))
+            return;
+        GLib.mkdir_with_parents(GLib.path_get_dirname(ANIM_PATH), 0o755);
+        const body = Object.entries(ANIM_DEFAULT)
+            .map(([k, v]) => `    "${k}": ${JSON.stringify(v)}`)
+            .join(',\n');
+        GLib.file_set_contents(ANIM_PATH, `{\n${body}\n}\n`);
+    } catch (e) {
+        console.warn(`macos-cc: impossibile creare ${ANIM_PATH}: ${e}`);
+    }
+}
+
+// Centro di rotazione di uno scaling (senza, si parte dall'angolo in alto a
+// sinistra). Va impostato una volta sola, alla costruzione del widget.
+function pivot(a) {
+    try {
+        a.set_pivot_point(0.5, 0.5);
+    } catch (e) { /* ignora */ }
+}
+
+// Regola generale: niente animazioni se sono disattivate o se il widget sta
+// ancora entrando in scena (altrimenti le due transizioni si cancellano).
+function canAnimate(a) {
+    return !!a && _anim.enabled && !a._macEntering;
+}
+
+// Pressione: compressione rapida + ritorno elastico.
+// Ogni sequenza finisce SEMPRE a scala 1: così anche se due animazioni si
+// sovrappongono, il risultato finale è sempre corretto.
+function press(a) {
+    if (!canAnimate(a))
+        return;
+    a.ease({
+        scale_x: _anim.pressScale,
+        scale_y: _anim.pressScale,
+        duration: _anim.pressDown,
+        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        onComplete: () => a.ease({
+            scale_x: 1,
+            scale_y: 1,
+            duration: _anim.pressUp,
+            mode: Clutter.AnimationMode.EASE_OUT_BACK,
+        }),
+    });
+}
+
+// Piccolo "pop" quando un widget cambia stato (bolle / cerchi).
+function pop(a, delay = _anim.popDelay) {
+    if (!canAnimate(a))
+        return;
+    const go = () => {
+        if (a._macEntering)   // se intanto è ripartita l'entrata, salto
+            return;
+        try {
+            a.ease({
+                scale_x: _anim.popScale,
+                scale_y: _anim.popScale,
+                duration: _anim.popDown,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                onComplete: () => a.ease({
+                    scale_x: 1,
+                    scale_y: 1,
+                    duration: _anim.popUp,
+                    mode: Clutter.AnimationMode.EASE_OUT_BACK,
+                }),
+            });
+        } catch (e) { /* attore già distrutto */ }
+    };
+    if (delay > 0)
+        later(delay, go);
+    else
+        go();
+}
+
 // Tessera larga con cerchio-icona (toggle) e area testo (menù)
 function wideTile(iconName, title, subtitle, extraClass, onToggle, onMenu) {
     const btn = new St.BoxLayout({
@@ -180,7 +319,10 @@ function wideTile(iconName, title, subtitle, extraClass, onToggle, onMenu) {
         reactive: true,
         child: icon(iconName),
     });
-    bubble.connect('clicked', () => onToggle?.());
+    bubble.connect('clicked', () => {
+        press(btn);
+        onToggle?.();
+    });
 
     // La parte col testo apre il menù delle impostazioni
     const textBtn = new St.Button({
@@ -198,7 +340,10 @@ function wideTile(iconName, title, subtitle, extraClass, onToggle, onMenu) {
     texts.add_child(t);
     texts.add_child(s);
     textBtn.set_child(texts);
-    textBtn.connect('clicked', () => onMenu?.());
+    textBtn.connect('clicked', () => {
+        press(btn);
+        onMenu?.();
+    });
 
     row.add_child(bubble);
     row.add_child(textBtn);
@@ -206,6 +351,7 @@ function wideTile(iconName, title, subtitle, extraClass, onToggle, onMenu) {
     
     btn._sub = s;
     btn._bubble = bubble;
+    pivot(btn);
     return asGlassToggle(btn);
 }
 
@@ -216,15 +362,23 @@ function circleButton(iconName, extraClass, onClick) {
         reactive: true,
         child: icon(iconName),
     });
-    btn.connect('clicked', () => onClick?.());
+    btn.connect('clicked', () => {
+        press(btn);
+        onClick?.();
+    });
+    pivot(btn);
     return asGlassCircle(btn);
 }
 
 function setOn(widget, on) {
+    const was = widget.has_style_pseudo_class('checked');
     if (on)
         widget.add_style_pseudo_class('checked');
     else
         widget.remove_style_pseudo_class('checked');
+    // Solo se lo stato è DAVVERO cambiato: niente pop a ogni sincronizzazione.
+    if (was !== on)
+        pop(widget);
 }
 
 function launch(cmd) {
@@ -237,11 +391,36 @@ function launch(cmd) {
 
 function sliderTile(title, lowIcon, highIcon, onTrail) {
     const box = new St.BoxLayout({vertical: true, style_class: 'mac-slider-tile'});
+    pivot(box);
     box.add_child(new St.Label({text: title, style_class: 'mac-title'}));
     const row = new St.BoxLayout({y_align: Clutter.ActorAlign.CENTER, style_class: 'mac-slider-row'});
     const slider = new Slider(0.5);
     slider.x_expand = true;
     slider.y_align = Clutter.ActorAlign.CENTER;
+    // Mentre trascini, la tessera si "solleva" un po' e si riabbassa al
+    // rilascio. (Il pallino dello slider è disegnato in Cairo da BarLevel e
+    // non è un attore a sé: ingrandirlo durante il drag sposterebbe anche la
+    // mappatura del valore, quindi non lo facciamo.)
+    slider.connect('drag-begin', () => {
+        if (!canAnimate(box))
+            return;
+        box.ease({
+            scale_x: _anim.sliderLift,
+            scale_y: _anim.sliderLift,
+            duration: _anim.sliderUp,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+    });
+    slider.connect('drag-end', () => {
+        if (!_anim.enabled)
+            return;
+        box.ease({
+            scale_x: 1,
+            scale_y: 1,
+            duration: _anim.sliderDown,
+            mode: Clutter.AnimationMode.EASE_OUT_BACK,
+        });
+    });
     row.add_child(icon(lowIcon, 'mac-small'));
     row.add_child(slider);
     row.add_child(icon(highIcon, 'mac-small'));
@@ -252,7 +431,10 @@ function sliderTile(title, lowIcon, highIcon, onTrail) {
             reactive: true,
             child: icon('mc:airplay', 'mac-small'),
         });
-        trail.connect('clicked', () => onTrail());
+        trail.connect('clicked', () => {
+            press(trail);
+            onTrail();
+        });
         row.add_child(trail);
     }
     box.add_child(row);
@@ -268,6 +450,9 @@ export default class MacControlCentre extends Extension {
         this._ids = [];
         this._artUrl = null;
         this._building = false;
+        this._openGen = 0;      // serve a invalidare i timer dell'animazione
+        this._enterActors = [];
+        ensureAnimFile();       // crea ~/.config/pulsar-cc/animazione.json
 
         this._ifaceSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
         this._notifSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.notifications'});
@@ -296,8 +481,12 @@ export default class MacControlCentre extends Extension {
         }
 
         this._ids.push([this._qs.menu, this._qs.menu.connect('open-state-changed', (_m, open) => {
-            if (open)
+            if (open) {
+                // Prima l'entrata in cascata, poi la sincronizzazione: così i
+                // "pop" di stato non si sovrappongono all'animazione di apertura.
+                this._startEntrance();
                 this._refresh();
+            }
         })]);
         // Aggiorna play/pausa e titolo appena il lettore cambia stato
         this._subs = [
@@ -309,10 +498,10 @@ export default class MacControlCentre extends Extension {
                 () => later(200, () => this._refreshMedia())),
         ];
         this._refresh();
-
     }
 
     disable() {
+        this._openGen = (this._openGen ?? 0) + 1;   // ferma i timer pendenti
         for (const id of this._subs ?? [])
             Gio.DBus.session.signal_unsubscribe(id);
         this._subs = [];
@@ -329,6 +518,67 @@ export default class MacControlCentre extends Extension {
         this._removed = [];
         this._ifaceSettings = this._notifSettings = this._colorSettings = null;
         this._mixer = null;
+    }
+
+    /* Entrata in cascata delle tessere all'apertura del pannello.
+     * Il contenitore (il "box pointer") fa già la sua animazione di 150 ms
+     * (dissolvenza + scala 0.96), quindi qui NON lo tocchiamo: aggiungiamo solo
+     * la cascata dei singoli widget, che è ciò che manca rispetto a macOS. */
+    _startEntrance() {
+        loadAnim();
+        const gen = ++this._openGen;
+        const list = this._enterActors ?? [];
+
+        if (!_anim.enabled) {
+            for (const a of list) {
+                if (!a)
+                    continue;
+                a._macEntering = false;
+                try {
+                    a.remove_all_transitions();
+                    a.opacity = 255;
+                    a.scale_x = 1;
+                    a.scale_y = 1;
+                    a.translation_y = 0;
+                } catch (e) { /* ignora */ }
+            }
+            return;
+        }
+
+        list.forEach((a, i) => {
+            if (!a)
+                return;
+            a._macEntering = true;
+            try {
+                a.remove_all_transitions();
+                a.opacity = 0;
+                a.scale_x = 1;
+                a.scale_y = 1;
+                a.translation_y = -_anim.enterRise;
+            } catch (e) {
+                a._macEntering = false;
+                return;
+            }
+            later(_anim.enterBase + i * _anim.enterStep, () => {
+                if (this._openGen !== gen || !this._panel)
+                    return;
+                a.ease({
+                    // "opacity" per primo: l'onComplete è legato alla prima
+                    // proprietà e l'opacità è l'unica che nessun'altra
+                    // animazione tocca, quindi _macEntering viene sempre
+                    // azzerato (anche se nel frattempo premi una tessera).
+                    opacity: 255,
+                    scale_x: 1,
+                    scale_y: 1,
+                    translation_y: 0,
+                    duration: _anim.enterDuration,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    onComplete: () => {
+                        a._macEntering = false;
+                    },
+                });
+            });
+        });
     }
 
     _buildPanel() {
@@ -356,16 +606,19 @@ export default class MacControlCentre extends Extension {
         left.add_child(this._bt);
         left.add_child(this._night);
 
-        right.add_child(this._buildMedia());
+        this._mediaTile = this._buildMedia();
+        right.add_child(this._mediaTile);
         const pair = new St.BoxLayout({style_class: 'mac-row'});
-        pair.add_child(circleButton('mc:stage', '', () => {
+        this._stage = circleButton('mc:stage', '', () => {
             this._qs.menu.close();
             Main.overview.toggle();
-        }));
-        pair.add_child(circleButton('mc:mirror', '', () => {
+        });
+        pair.add_child(this._stage);
+        this._mirror = circleButton('mc:mirror', '', () => {
             this._qs.menu.close();
             launch('gnome-control-center display');
-        }));
+        });
+        pair.add_child(this._mirror);
         right.add_child(pair);
 
         top.add_child(left);
@@ -379,13 +632,14 @@ export default class MacControlCentre extends Extension {
         // Tolto mac-blue fisso, userà :checked
         this._dark = circleButton('mc:contrast', '', () => this._toggleDark());
         circles.add_child(this._dark);
-        circles.add_child(circleButton('mc:screenshot', '', () => {
+        this._shot = circleButton('mc:screenshot', '', () => {
             this._qs.menu.close();
             GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
                 Main.screenshotUI.open();
                 return GLib.SOURCE_REMOVE;
             });
-        }));
+        });
+        circles.add_child(this._shot);
         this._dnd = wideTile('mc:moon', 'Non disturbare', '', '', 
             () => this._toggleDnd(), 
             () => { this._qs.menu.close(); launch('gnome-control-center notifications'); }
@@ -429,6 +683,17 @@ export default class MacControlCentre extends Extension {
                 console.warn(`macos-cc: volume: ${e}`);
             }
         });
+
+        // Ordine in cui i widget entrano quando apri il pannello: da sinistra a
+        // destra, dall'alto in basso (come fa macOS).
+        this._enterActors = [
+            this._wifi, this._bt, this._night,
+            this._mediaTile, this._stage, this._mirror,
+            this._dark, this._shot, this._dnd,
+            this._display, this._sound,
+        ];
+        for (const a of this._enterActors)
+            pivot(a);
 
         this._qs.menu.box.add_child(panel);
     }
@@ -476,16 +741,21 @@ export default class MacControlCentre extends Extension {
                 child: new St.Icon({gicon: symbol(name), style_class: 'mac-media-icon'}),
                 can_focus: true,
             });
-            b.connect('clicked', () => findPlayer(p => {
-                if (!p)
-                    return;
-                Gio.DBus.session.call(p, MPRIS_PATH, PLAYER_IFACE, method, null, null,
-                    NONE, -1, null, () => later(150, () => this._refreshMedia()));
-            }));
+            pivot(b);
+            b.connect('clicked', () => {
+                press(b);
+                findPlayer(p => {
+                    if (!p)
+                        return;
+                    Gio.DBus.session.call(p, MPRIS_PATH, PLAYER_IFACE, method, null, null,
+                        NONE, -1, null, () => later(150, () => this._refreshMedia()));
+                });
+            });
             return b;
         };
 
         this._playBtn = mk('play', 'PlayPause');
+        pivot(this._playBtn.child);   // il glifo ruota/scala dal suo centro
         controls.add_child(spacer());
         controls.add_child(mk('rewind', 'Previous'));
         controls.add_child(this._playBtn);
@@ -495,6 +765,7 @@ export default class MacControlCentre extends Extension {
         tile.add_child(this._art);
         tile.add_child(this._mediaTitle);
         tile.add_child(controls);
+        pivot(tile);
         return tile;
     }
 
@@ -646,13 +917,46 @@ export default class MacControlCentre extends Extension {
         this._refreshMedia();
     }
 
+    // Cambia il glifo play/pausa. Se le animazioni sono attive lo fa con una
+    // dissolvenza incrociata (il glifo si rimpicciolisce e sfuma, poi il nuovo
+    // appare con un rimbalzo). Il confronto con _macGlyph evita di rifare
+    // l'animazione a ogni sincronizzazione (che arriva molto spesso).
+    _setPlayGlyph(name) {
+        const ic = this._playBtn?.child;
+        if (!ic || ic._macGlyph === name)
+            return;
+        const first = ic._macGlyph === undefined;   // prima volta: senza animazione
+        ic._macGlyph = name;
+        if (first || !_anim.enabled) {
+            ic.gicon = symbol(name);
+            return;
+        }
+        ic.ease({
+            opacity: 0,   // per primo: ci lega l'onComplete
+            scale_x: 0.7,
+            scale_y: 0.7,
+            duration: _anim.iconOut,
+            mode: Clutter.AnimationMode.EASE_IN_QUAD,
+            onComplete: () => {
+                ic.gicon = symbol(name);
+                ic.ease({
+                    opacity: 255,
+                    scale_x: 1,
+                    scale_y: 1,
+                    duration: _anim.iconIn,
+                    mode: Clutter.AnimationMode.EASE_OUT_BACK,
+                });
+            },
+        });
+    }
+
     _refreshMedia() {
         findPlayer(name => {
             if (!this._panel)
                 return;
             if (!name) {
                 this._mediaTitle.text = 'Non in riproduzione';
-                this._playBtn.child.gicon = symbol('play');
+                this._setPlayGlyph('play');
                 this._setArt(null);
                 return;
             }
@@ -670,7 +974,7 @@ export default class MacControlCentre extends Extension {
                 if (!this._panel)
                     return;
                 const playing = st?.get_string()[0] === 'Playing';
-                this._playBtn.child.gicon = symbol(playing ? 'pause' : 'play');
+                this._setPlayGlyph(playing ? 'pause' : 'play');
                 try {
                     const m = md.deepUnpack();
                     this._mediaTitle.text = m['xesam:title']?.deepUnpack() || 'Non in riproduzione';
