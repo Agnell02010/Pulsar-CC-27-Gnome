@@ -1,4 +1,5 @@
-# Pulsar CC 27 — macOS Control Center for GNOME
+# Pulsar CC 27 — M
+acOS Control Center for GNOME
 
 <img width="365" height="569" alt="Pulsar-CC-27 (No Blur)" src="https://github.com/user-attachments/assets/7f6a8b61-5f11-4396-bf21-215335e58393" />
 <img width="365" height="569" alt="Pulsar-CC-27 (Blur)" src="https://github.com/user-attachments/assets/d8cdb1a2-f7f4-44fe-b011-78ec8b58b342" />
