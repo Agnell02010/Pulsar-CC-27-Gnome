@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 #
-# Pulsar CC 27 - applica un profilo all'estensione Liquid Glass
+# Pulsar CC 27 - apply a profile to the Liquid Glass extension
 # Copyright (C) 2026 Agnell02010
-# Licenza: GPL-2.0-or-later
+# License: GPL-2.0-or-later
 #
-# Uso:
-#   ./applica-profilo.sh no-blur     vetro senza sfocatura (consigliato)
-#   ./applica-profilo.sh blur        vetro con sfocatura
-#   ./applica-profilo.sh salva       salva le impostazioni attuali in un file
+# Usage:
+#   ./applica-profilo.sh no-blur     glass without blur (recommended)
+#   ./applica-profilo.sh blur        glass with blur
+#   ./applica-profilo.sh salva       save the current settings to a file
+#   ./applica-profilo.sh save        same as "salva"
 #
 set -euo pipefail
 
@@ -22,44 +23,44 @@ MODO="${1:-no-blur}"
 case "$MODO" in
   no-blur|nob|no)
     FILE="$DIR/liquid_glass_settings(NO_BLUR).txt"
-    NOME="NO_BLUR (senza sfocatura)"
+    NOME="NO_BLUR (without blur)"
     ;;
   blur|b)
     FILE="$DIR/liquid_glass_settings(BLUR).txt"
-    NOME="BLUR (con sfocatura)"
+    NOME="BLUR (with blur)"
     ;;
   salva|save)
     mkdir -p "$BACKUP_DIR"
     OUT="$BACKUP_DIR/liquid_glass_$(date +%Y%m%d-%H%M%S).txt"
     dconf dump "$LG_PATH" > "$OUT"
-    echo "${G}  ok${N}  Impostazioni salvate in: $OUT"
+    echo "${G}  ok${N}  Settings saved to: $OUT"
     exit 0
     ;;
   *)
-    echo "Uso: $0 [no-blur|blur|salva]" >&2
+    echo "Usage: $0 [no-blur|blur|salva]" >&2
     exit 2
     ;;
 esac
 
 if ! command -v dconf >/dev/null 2>&1; then
-  echo "${R}  xx${N}  Comando 'dconf' non trovato." >&2
+  echo "${R}  xx${N}  Command 'dconf' not found." >&2
   exit 1
 fi
 
 if [ ! -f "$FILE" ]; then
-  echo "${R}  xx${N}  File profilo non trovato: $FILE" >&2
+  echo "${R}  xx${N}  Profile file not found: $FILE" >&2
   exit 1
 fi
 
-# backup delle impostazioni attuali
+# backup of the current settings
 mkdir -p "$BACKUP_DIR"
 dconf dump "$LG_PATH" > "$BACKUP_DIR/liquid_glass_$(date +%Y%m%d-%H%M%S).txt" || true
 
-# applica
+# apply
 dconf load "$LG_PATH" < "$FILE"
 
-echo "${G}  ok${N}  Profilo applicato: ${B}$NOME${N}"
+echo "${G}  ok${N}  Profile applied: ${B}$NOME${N}"
 echo
-echo "  Se il Centro di controllo è già aperto, richiudilo e riaprilo"
-echo "  (l'effetto vetro viene ricalcolato all'apertura)."
+echo "  If the Control Center is already open, close and reopen it"
+echo "  (the glass effect is recalculated when the panel opens)."
 echo

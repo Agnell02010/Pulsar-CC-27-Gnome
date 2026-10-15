@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# Pulsar CC 27 - installazione del Centro di controllo stile macOS
+# Pulsar CC 27 - installer for the MacOS-style Control Center
 # Copyright (C) 2026 Agnell02010
-# Licenza: GPL-2.0-or-later
+# License: GPL-2.0-or-later
 #
 set -euo pipefail
 
@@ -12,7 +12,7 @@ EXT_SRC="$SRC_DIR/$UUID"
 EXT_DST="$HOME/.local/share/gnome-shell/extensions/$UUID"
 LG_PATH="/org/gnome/shell/extensions/liquid-glass/"
 
-# --- colori ---
+# --- colors ---
 if [ -t 1 ]; then
   B=$'\e[1m'; G=$'\e[32m'; Y=$'\e[33m'; R=$'\e[31m'; C=$'\e[36m'; N=$'\e[0m'
 else
@@ -24,86 +24,86 @@ err()  { echo "${R}  xx${N}  $*" >&2; }
 info() { echo "${C}  ..${N}  $*"; }
 
 echo
-echo "${B}Pulsar CC 27 — Centro di controllo stile macOS${N}"
+echo "${B}Pulsar CC 27 — MacOS-style Control Center${N}"
 echo "-----------------------------------------------"
 echo
 
-# ---------------------------------------------------------------- controlli
+# ---------------------------------------------------------------- checks
 if ! command -v gnome-extensions >/dev/null 2>&1; then
-  err "Comando 'gnome-extensions' non trovato: questo non sembra GNOME Shell."
+  err "'gnome-extensions' not found: this does not look like GNOME Shell."
   exit 1
 fi
 
 SHELL_VER="$(gnome-shell --version 2>/dev/null | grep -oE '[0-9]+' | head -1 || true)"
 if [ -n "${SHELL_VER:-}" ]; then
-  info "GNOME Shell rilevato: versione $SHELL_VER"
+  info "GNOME Shell detected: version $SHELL_VER"
   if [ "$SHELL_VER" -lt 45 ] 2>/dev/null; then
-    warn "L'estensione è pensata per GNOME Shell 50: su $SHELL_VER potrebbe non funzionare."
+    warn "This extension targets GNOME Shell 50: on $SHELL_VER it may not work."
   fi
 else
-  warn "Non riesco a determinare la versione di GNOME Shell."
+  warn "Could not determine the GNOME Shell version."
 fi
 
 if [ ! -d "$EXT_SRC" ]; then
-  err "Cartella dell'estensione non trovata: $EXT_SRC"
-  err "Lancia lo script dalla cartella del progetto."
+  err "Extension folder not found: $EXT_SRC"
+  err "Run this script from the project folder."
   exit 1
 fi
 
-# ------------------------------------------------------- copia estensione
+# ------------------------------------------------------- copy extension
 echo
-info "Copio l'estensione in ${B}$EXT_DST${N}"
+info "Copying the extension to ${B}$EXT_DST${N}"
 mkdir -p "$(dirname "$EXT_DST")"
 rm -rf "$EXT_DST"
 cp -r "$EXT_SRC" "$EXT_DST"
-ok "Estensione copiata ($(find "$EXT_DST" -type f | wc -l) file)"
+ok "Extension copied ($(find "$EXT_DST" -type f | wc -l) files)"
 
-# ------------------------------------------------------------- abilitazione
+# ------------------------------------------------------------- enabling
 if gnome-extensions enable "$UUID" 2>/dev/null; then
-  ok "Estensione abilitata"
+  ok "Extension enabled"
 else
-  warn "Non sono riuscito ad abilitarla automaticamente."
-  warn "Fallo a mano:  gnome-extensions enable $UUID"
+  warn "Could not enable it automatically."
+  warn "Do it by hand:  gnome-extensions enable $UUID"
 fi
 
 # ---------------------------------------------------------- Liquid Glass
 echo
 if gnome-extensions list 2>/dev/null | grep -q '^liquid-glass@'; then
-  ok "Estensione Liquid Glass trovata"
+  ok "Liquid Glass extension found"
   echo
-  read -r -p "  Applico un profilo Liquid Glass per il Centro di controllo? [S/n] " RISPOSTA || RISPOSTA="s"
-  RISPOSTA="${RISPOSTA:-s}"
+  read -r -p "  Apply a Liquid Glass profile to the Control Center? [Y/n] " RISPOSTA || RISPOSTA="y"
+  RISPOSTA="${RISPOSTA:-y}"
   case "$RISPOSTA" in
     n|N)
-      info "Profilo non applicato. Puoi farlo dopo con:"
+      info "Profile not applied. You can do it later with:"
       info "  ./liquid-glass/applica-profilo.sh no-blur"
       ;;
     *)
       PROFILE="$SRC_DIR/liquid-glass/liquid_glass_settings(NO_BLUR).txt"
       if [ -f "$PROFILE" ]; then
         dconf load "$LG_PATH" < "$PROFILE"
-        ok "Profilo NO_BLUR applicato (vetro senza sfocatura)"
+        ok "NO_BLUR profile applied (glass without blur)"
       else
-        warn "File profilo non trovato: $PROFILE"
+        warn "Profile file not found: $PROFILE"
       fi
       ;;
   esac
 else
-  warn "Estensione Liquid Glass NON trovata."
-  warn "Senza di essa il Centro di controllo funziona ma non ha l'effetto vetro."
-  warn "Installa Liquid Glass e poi applica un profilo con:"
+  warn "Liquid Glass extension NOT found."
+  warn "Without it the Control Center still works, just without the glass look."
+  warn "Install Liquid Glass and then apply a profile with:"
   warn "  ./liquid-glass/applica-profilo.sh no-blur"
 fi
 
-# --------------------------------------------------------------- finale
+# --------------------------------------------------------------- finish
 echo
 echo "-----------------------------------------------"
-echo "${G}${B}Installazione completata!${N}"
+echo "${G}${B}Installation completed!${N}"
 echo
-echo "  ${B}Ora devi uscire e rientrare (logout/login).${N}"
-echo "  Su Wayland è obbligatorio perché GNOME carichi l'estensione."
+echo "  ${B}Now log out and back in (logout/login).${N}"
+echo "  On Wayland this is required for GNOME to load the extension."
 echo
-echo "  Dopo il login premi  ${B}Super+S${N}  per aprire il Centro di controllo."
+echo "  After login press  ${B}Super+S${N}  to open the Control Center."
 echo
-echo "  Ulteriori info nel README.md"
+echo "  More info in README.md"
 echo

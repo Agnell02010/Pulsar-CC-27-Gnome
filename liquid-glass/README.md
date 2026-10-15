@@ -1,45 +1,45 @@
-# Profili Liquid Glass
+# Liquid Glass profiles
 
-Questa cartella contiene due profili pronti per l'estensione
-**Liquid Glass** (`liquid-glass@thinkingcoding1231.gmail.com`), che servono a
-far combaciare il vetro con il Centro di controllo.
+This folder contains two ready-made profiles for the
+**Liquid Glass** extension (`liquid-glass@thinkingcoding1231.gmail.com`), used
+to make the glass line up with the Control Center.
 
-## Applicare un profilo
+## Applying a profile
 
 ```bash
-./applica-profilo.sh no-blur    # vetro senza sfocatura (consigliato)
-./applica-profilo.sh blur       # vetro con sfocatura
-./applica-profilo.sh salva      # salva le impostazioni attuali
+./applica-profilo.sh no-blur    # glass without blur (recommended)
+./applica-profilo.sh blur       # glass with blur
+./applica-profilo.sh salva      # save the current settings
 ```
 
-Oppure, a mano:
+Or by hand:
 
 ```bash
 dconf load /org/gnome/shell/extensions/liquid-glass/ \
     < "liquid_glass_settings(NO_BLUR).txt"
 ```
 
-Lo script salva automaticamente un backup delle impostazioni precedenti in
+The script automatically backs up the previous settings to
 `~/.config/pulsar-cc/lg-backup/`.
 
-## Quale scegliere?
+## Which one to pick?
 
 | | NO_BLUR | BLUR |
 |---|---|---|
-| Sfocatura | no | sì |
-| Prestazioni | migliori | più pesante |
-| Effetto | vetro netto e leggero | vetro morbido |
+| Blur | no | yes |
+| Performance | better | heavier |
+| Look | crisp, light glass | soft glass |
 
-## Valori importanti per il Centro di controllo
+## Keys that matter for the Control Center
 
-| Chiave | NO_BLUR | BLUR | Significato |
+| Key | NO_BLUR | BLUR | Meaning |
 |---|---|---|---|
-| `quick-settings-apply-to` | `1` | `1` | applica il vetro a tutte le tessere (*Toggles*) |
-| `quick-settings-toggle-corner-radius` | `30.0` | `32.5` | raggio del vetro sulle tessere |
-| `quick-settings-glass-expand` | `0` | `0` | il vetro **non** deve sbordare dal pannello |
-| `quick-settings-blur-radius` | `1` | `12` | sfocatura del pannello |
-| `quick-settings-corner-radius` | `35.63` | `35.63` | raggio del pannello vetro |
-| `output-logs` | `false` | `false` | log di debug disattivati |
+| `quick-settings-apply-to` | `1` | `1` | apply the glass to every tile (*Toggles* mode) |
+| `quick-settings-toggle-corner-radius` | `30.0` | `32.5` | corner radius of the glass on the tiles |
+| `quick-settings-glass-expand` | `0` | `0` | the glass must **not** overflow the panel |
+| `quick-settings-blur-radius` | `1` | `12` | blur of the panel |
+| `quick-settings-corner-radius` | `35.63` | `35.63` | corner radius of the glass panel |
+| `output-logs` | `false` | `false` | debug logging off |
 
-> Se il vetro esce fuori dal pannello, `quick-settings-glass-expand` deve
-> restare `0` e il raggio (`toggle-corner-radius`) va abbassato (es. `29`).
+> If the glass overflows the panel, `quick-settings-glass-expand` must stay `0`
+> and the radius (`toggle-corner-radius`) should be lowered (e.g. `29`).

@@ -12,13 +12,13 @@ import * as Volume from 'resource:///org/gnome/shell/ui/status/volume.js';
 
 const NONE = Gio.DBusCallFlags.NONE;
 
-// Cartella delle icone in stile macOS (impostata in enable())
+// Folder with the MacOS-style icons (set in enable())
 let ICON_DIR = '';
 function symbol(name) {
     return Gio.icon_new_for_string(`${ICON_DIR}/${name}-symbolic.svg`);
 }
 
-// --- Retroilluminazione del portatile: legge /sys e scrive tramite logind
+// --- Laptop backlight: reads /sys and writes through logind
 const BL_DIR = '/sys/class/backlight';
 function findBacklight() {
     try {
@@ -62,10 +62,10 @@ function later(ms, fn) {
     });
 }
 
-// Se il pannello esce ancora a destra, aumenta questo valore (pixel).
+// If the panel still sticks out on the right, increase this value (pixels).
 const SHIFT_LEFT = 34;
 
-/* ---------- utilita' D-Bus ---------- */
+/* ---------- D-Bus helpers ---------- */
 function propGet(bus, name, path, iface, prop, cb) {
     bus.call(name, path, 'org.freedesktop.DBus.Properties', 'Get',
         new GLib.Variant('(ss)', [iface, prop]), GLib.VariantType.new('(v)'),
@@ -107,7 +107,7 @@ function findPlayer(cb) {
         });
 }
 
-/* ---------- costruttori di widget ---------- */
+/* ---------- widget builders ---------- */
 function icon(name, cls = '') {
     const props = {
         style_class: `mac-icon ${cls}`,
@@ -121,19 +121,19 @@ function icon(name, cls = '') {
     return new St.Icon(props);
 }
 
-/* ---- Integrazione con l'estensione "Liquid Glass" ----
- * Liquid Glass (modalità Toggles) disegna il vetro solo sui widget GNOME che
- * portano la classe `.quick-toggle`. Le nostre tile sono widget nostri
- * (mac-tile / mac-slider-tile) e per lei non esistono, quindi non venivano
- * mai "glassate". Qui marchiamo le tile con `quick-toggle` così le riconosce
- * e stende il vetro su ciascuna, mantenendo identica la grafica.
+/* ---- Integration with the "Liquid Glass" extension ----
+ * Liquid Glass (Toggles mode) only paints the glass on the GNOME widgets that
+ * carry the `.quick-toggle` class. Our tiles are our own widgets
+ * (mac-tile / mac-slider-tile) which do not exist for it, so they were never
+ * "glassed". Here we tag the tiles with `quick-toggle` so that it recognises
+ * them and spreads the glass over each one, keeping the look identical.
  *
- * Interruttori separati, così puoi provare/annullare ogni gruppo
- * indipendentemente (metti false per tornare al comportamento senza vetro). */
-const LIQUID_GLASS_TOGGLES = true;   // tessere larghe (Wi-Fi, Bluetooth, Luce notturna, Non disturbare)
-const LIQUID_GLASS_SLIDERS = true;   // tessere con gli slider (Schermo, Audio)
-const LIQUID_GLASS_MEDIA   = true;   // riquadro del lettore musicale
-const LIQUID_GLASS_CIRCLES = true;   // i 4 pulsanti circolari (Stage, Mirror, Tema scuro, Screenshot)
+ * Separate switches, so you can try or revert each group on its own
+ * (set to false to go back to the no-glass behaviour). */
+const LIQUID_GLASS_TOGGLES = true;   // wide tiles (Wi-Fi, Bluetooth, Night Light, Do Not Disturb)
+const LIQUID_GLASS_SLIDERS = true;   // tiles with the sliders (Display, Sound)
+const LIQUID_GLASS_MEDIA   = true;   // media player box
+const LIQUID_GLASS_CIRCLES = true;   // the 4 round buttons (Stage, Mirror, Dark Mode, Screenshot)
 function asGlassToggle(widget) {
     if (LIQUID_GLASS_TOGGLES)
         widget.add_style_class_name('quick-toggle');
@@ -155,61 +155,150 @@ function asGlassCircle(widget) {
     return widget;
 }
 
-// Stringa con cui Liquid Glass azzera lo sfondo degli elementi riconosciuti.
-// Deve combaciare ESATTAMENTE: se un widget la porta già nel proprio stile,
-// Liquid Glass lo salta del tutto (non lo registra, quindi non può più
-// "ripristinargli" per errore uno stile vecchio). Serve a proteggere la
-// copertina del lettore, che altrimenti tornerebbe alla traccia precedente
-// a ogni ricampionamento dei colori.
+// String with which Liquid Glass clears the background of the widgets it
+// recognises. It must match EXACTLY: when a widget already carries it in its
+// own style, Liquid Glass skips it entirely (it never registers it, so it can
+// no longer accidentally restore an old style on it). This protects the player
+// album art, which would otherwise snap back to the previous track every time
+// the colours are resampled.
 const LG_OVERRIDE = 'background-color: transparent !important;';
 
-/* ---------- animazioni (stile macOS / Liquid Glass) ----------
- * Attenzione: St (il CSS di GNOME) NON supporta le transizioni CSS
- * (l'ho verificato in st-theme-node.c: non esistono "transition" né
- * "animation"), quindi ogni animazione va fatta in JS con actor.ease().
+/* ---------- language of the Control Center ----------
+ * The visible texts follow the language of the PC: we read the session locale
+ * (LC_ALL / LC_MESSAGES / LANG, as GNOME exposes it) and pick the translation
+ * from the table below. When a language - or a single key - is missing, the
+ * English text is used, so something is always shown.
+ * No .po/.mo files to compile: the package stays a plain "install.sh". */
+const STRINGS = {
+    // key:  night       dnd                 display     sound     notPlaying              on        off
+    en: {night: 'Night Shift', dnd: 'Do Not Disturb', display: 'Display', sound: 'Sound',
+         notPlaying: 'Not Playing', on: 'On', off: 'Off'},
+    it: {night: 'Luce notturna', dnd: 'Non disturbare', display: 'Schermo', sound: 'Audio',
+         notPlaying: 'Non in riproduzione', on: 'Attivo', off: 'Non attivo',
+         onF: 'Attiva', offF: 'Non attiva'},          // "Luce notturna" is feminine
+    fr: {night: 'Lumière nocturne', dnd: 'Ne pas déranger', display: 'Écran', sound: 'Son',
+         notPlaying: 'Aucune lecture', on: 'Activé', off: 'Désactivé',
+         onF: 'Activée', offF: 'Désactivée'},
+    de: {night: 'Nachtlicht', dnd: 'Nicht stören', display: 'Bildschirm', sound: 'Ton',
+         notPlaying: 'Keine Wiedergabe', on: 'Ein', off: 'Aus'},
+    es: {night: 'Modo nocturno', dnd: 'No molestar', display: 'Pantalla', sound: 'Sonido',
+         notPlaying: 'Sin reproducción', on: 'Activado', off: 'Desactivado'},
+    pt: {night: 'Modo noturno', dnd: 'Não incomodar', display: 'Ecrã', sound: 'Som',
+         notPlaying: 'Nada em reprodução', on: 'Ativado', off: 'Desativado'},
+    'pt-br': {night: 'Modo noturno', dnd: 'Não incomodar', display: 'Tela', sound: 'Som',
+         notPlaying: 'Nada em reprodução', on: 'Ativado', off: 'Desativado'},
+    nl: {night: 'Nachtlicht', dnd: 'Niet storen', display: 'Scherm', sound: 'Geluid',
+         notPlaying: 'Niets wordt afgespeeld', on: 'Aan', off: 'Uit'},
+    pl: {night: 'Nocne światło', dnd: 'Nie przeszkadzać', display: 'Ekran', sound: 'Dźwięk',
+         notPlaying: 'Nic nie jest odtwarzane', on: 'Włączone', off: 'Wyłączone'},
+    ru: {night: 'Ночная подсветка', dnd: 'Не беспокоить', display: 'Экран', sound: 'Звук',
+         notPlaying: 'Ничего не воспроизводится', on: 'Вкл.', off: 'Выкл.'},
+    tr: {night: 'Gece ışığı', dnd: 'Rahatsız etmeyin', display: 'Ekran', sound: 'Ses',
+         notPlaying: 'Çalınmıyor', on: 'Açık', off: 'Kapalı'},
+    uk: {night: 'Нічне світло', dnd: 'Не турбувати', display: 'Екран', sound: 'Звук',
+         notPlaying: 'Немає відтворення', on: 'Увімкнено', off: 'Вимкнено'},
+    cs: {night: 'Noční osvětlení', dnd: 'Nerušit', display: 'Obrazovka', sound: 'Zvuk',
+         notPlaying: 'Nic se nepřehrává', on: 'Zapnuto', off: 'Vypnuto'},
+    hu: {night: 'Éjszakai fény', dnd: 'Ne zavarjanak', display: 'Képernyő', sound: 'Hang',
+         notPlaying: 'Nincs lejátszás', on: 'Bekapcsolva', off: 'Kikapcsolva'},
+    ro: {night: 'Lumina de noapte', dnd: 'Nu deranja', display: 'Ecran', sound: 'Sunet',
+         notPlaying: 'Nicio redare', on: 'Pornit', off: 'Oprit',
+         onF: 'Pornită', offF: 'Oprită'},
+    el: {night: 'Νυχτερινή λειτουργία', dnd: 'Μην ενοχλείτε', display: 'Οθόνη', sound: 'Ήχος',
+         notPlaying: 'Δεν αναπαράγεται', on: 'Ενεργό', off: 'Ανενεργό',
+         onF: 'Ενεργή', offF: 'Ανενεργή'},
+    sv: {night: 'Nattbelysning', dnd: 'Stör inte', display: 'Skärm', sound: 'Ljud',
+         notPlaying: 'Spelas inte upp', on: 'På', off: 'Av'},
+    da: {night: 'Nattlys', dnd: 'Forstyr ikke', display: 'Skærm', sound: 'Lyd',
+         notPlaying: 'Afspilles ikke', on: 'Tændt', off: 'Slukket'},
+    nb: {night: 'Nattlys', dnd: 'Ikke forstyrr', display: 'Skjerm', sound: 'Lyd',
+         notPlaying: 'Spilles ikke', on: 'På', off: 'Av'},
+    fi: {night: 'Yövalo', dnd: 'Älä häiritse', display: 'Näyttö', sound: 'Ääni',
+         notPlaying: 'Ei toisteta', on: 'Päällä', off: 'Pois'},
+    ja: {night: '夜間モード', dnd: 'おやすみモード', display: 'ディスプレイ', sound: 'サウンド',
+         notPlaying: '再生していません', on: 'オン', off: 'オフ'},
+    zh: {night: '夜览', dnd: '勿扰模式', display: '显示器', sound: '声音',
+         notPlaying: '未在播放', on: '开', off: '关'},   // simplified (zh_TW included too)
+    ko: {night: '야간 모드', dnd: '방해 금지', display: '디스플레이', sound: '사운드',
+         notPlaying: '재생 중이 아님', on: '켬', off: '끔'},
+    id: {night: 'Mode Malam', dnd: 'Jangan Ganggu', display: 'Layar', sound: 'Suara',
+         notPlaying: 'Tidak Diputar', on: 'Aktif', off: 'Nonaktif'},
+    vi: {night: 'Chế độ ban đêm', dnd: 'Không làm phiền', display: 'Màn hình', sound: 'Âm thanh',
+         notPlaying: 'Không phát', on: 'Bật', off: 'Tắt'},
+};
+
+// 'it_IT.UTF-8' -> 'it'; Portuguese keeps its own entry for Brazil.
+function detectLang() {
+    try {
+        const raw = (GLib.get_language_names()[0] || 'en').toLowerCase();
+        if (raw.startsWith('pt_br') || raw.startsWith('pt-br'))
+            return 'pt-br';
+        const base = raw.split(/[._-]/)[0];       // it_IT.UTF-8 -> it
+        if (STRINGS[base])
+            return base;
+        const two = base.slice(0, 2);             // zh_CN -> zh
+        return STRINGS[two] ? two : 'en';
+    } catch (e) {
+        return 'en';
+    }
+}
+const UI_LANG = detectLang();
+
+// Text in the language of the PC. Gendered variants (onF/offF) fall back to
+// on/off, and any missing key falls back to English.
+function tr(key) {
+    const dict = STRINGS[UI_LANG] || STRINGS.en;
+    const base = key.endsWith('F') ? key.slice(0, -1) : key;
+    return dict[key] ?? dict[base] ?? STRINGS.en[key] ?? STRINGS.en[base] ?? key;
+}
+
+/* ---------- animations (MacOS / Liquid Glass style) ----------
+ * NOTE: St (the GNOME CSS engine) does NOT support CSS transitions
+ * (I verified this in st-theme-node.c: neither "transition" nor "animation"
+ * exist), so every animation has to be written in JS with actor.ease().
  *
- * Durate e intensità vivono in ~/.config/pulsar-cc/animazione.json, che viene
- * RILETTO a ogni apertura del Centro di controllo: per ritoccare un numero
- * basta modificare quel file e riaprire il pannello, SENZA logout.
- * Il file viene creato automaticamente al primo avvio. */
+ * Durations and strengths live in ~/.config/pulsar-cc/animazione.json, which is
+ * RE-READ every time the Control Center opens: to tweak a number just edit that
+ * file and reopen the panel, NO logout needed.
+ * The file is created automatically on first run. */
 const ANIM_PATH = GLib.build_filenamev([
     GLib.get_user_config_dir(), 'pulsar-cc', 'animazione.json']);
 
 const ANIM_DEFAULT = {
     enabled: true,
 
-    // Entrata: le tessere arrivano in cascata quando apri il pannello.
-    // L'arrivo e' in due tempi: prima oltrepassano di poco la dimensione
-    // finale (enterOvershoot), poi si assestano -> effetto "liquido".
-    enterBase: 20,        // ritardo iniziale (ms)
-    enterStep: 20,        // distanza fra due tessere consecutive (ms)
-    enterDuration: 280,   // durata dell'arrivo (ms)
-    enterSettle: 150,     // durata dell'assestamento finale (ms)
-    enterScale: 0.90,     // scala di partenza (1 = solo dissolvenza)
-    enterRise: 8,         // da quanti px verso l'alto partono (0 = niente)
-    enterOvershoot: 1.02, // di quanto "sorpassano" prima di assestarsi
+    // Open: the tiles arrive in a cascade when you open the panel.
+    // The arrival has two phases: first they overshoot the final
+    // size a little (enterOvershoot), then they settle -> "liquid" effect.
+    enterBase: 20,        // initial delay (ms)
+    enterStep: 20,        // delay between two consecutive tiles (ms)
+    enterDuration: 280,   // arrival duration (ms)
+    enterSettle: 150,     // final settle duration (ms)
+    enterScale: 0.90,     // starting scale (1 = fade only)
+    enterRise: 8,         // how many px they rise from (0 = none)
+    enterOvershoot: 1.02, // how much they overshoot before settling
 
-    // Pressione: si comprime APPENA premi (non al rilascio) e torna su con
-    // un rimbalzo morbido.
-    pressScale: 0.94,     // quanto si comprime
-    pressSquash: 0.03,    // schiacciamento extra in verticale (0 = uniforme)
-    pressDown: 90,        // tempo per schiacciarsi (ms)
-    pressUp: 260,         // tempo per tornare su (ms)
-    pressOvershoot: 1.02, // torna su passando leggermente oltre
+    // Press: it compresses the MOMENT you press (not on release) and comes
+    // back up with a soft bounce.
+    pressScale: 0.94,     // how much it compresses
+    pressSquash: 0.03,    // extra vertical squash (0 = uniform)
+    pressDown: 90,        // time to compress (ms)
+    pressUp: 260,         // time to come back up (ms)
+    pressOvershoot: 1.02, // comes back slightly past the final size
 
-    // "Pop" extra quando un widget cambia stato SENZA essere premuto.
-    // 1.0 = spento: i pallini dentro le pillole restano attaccati alla
-    // pillola (nessun doppio rimbalzo). Metti 1.12 per riaccenderlo.
+    // Extra "pop" when a widget changes state WITHOUT being pressed.
+    // 1.0 = off: the bubbles inside the pills stay attached to the
+    // pill (no double bounce). Set 1.12 to turn it back on.
     popScale: 1.0,
     popDown: 110,
     popUp: 230,
-    popDelay: 120,       // aspetta che finisca la pressione (ms)
+    popDelay: 120,       // waits for the press to finish (ms)
 
-    // Play/pausa: dissolvenza incrociata del glifo
+    // Play/pause: crossfade of the glyph
     iconOut: 80,
     iconIn: 200,
 
-    // Sliders: si sollevano leggermente mentre li trascini
+    // Sliders: they lift slightly while you drag them
     sliderLift: 1.02,
     sliderUp: 140,
     sliderDown: 240,
@@ -217,24 +306,24 @@ const ANIM_DEFAULT = {
 
 let _anim = {...ANIM_DEFAULT};
 
-// (Ri)legge i parametri dal file. Chiamato a ogni apertura del pannello.
+// (Re)reads the parameters from the file. Called every time the panel opens.
 function loadAnim() {
     _anim = {...ANIM_DEFAULT};
     try {
         const [, bytes] = GLib.file_get_contents(ANIM_PATH);
         const json = JSON.parse(new TextDecoder().decode(bytes));
         for (const k of Object.keys(ANIM_DEFAULT)) {
-            // Accetta solo valori dello stesso tipo: un refuso non rovina nulla.
+            // Only values of the same type are accepted: a typo cannot break anything.
             if (typeof json[k] === typeof ANIM_DEFAULT[k])
                 _anim[k] = json[k];
         }
     } catch (e) {
-        // file assente o malformato: restano i valori predefiniti
+        // missing or malformed file: the defaults stay in place
     }
     return _anim;
 }
 
-// Crea il file di configurazione se non esiste (non sovrascrive i tuoi cambi).
+// Creates the config file if it does not exist (never overwrites your changes).
 function ensureAnimFile() {
     try {
         if (GLib.file_test(ANIM_PATH, GLib.FileTest.EXISTS))
@@ -249,21 +338,21 @@ function ensureAnimFile() {
     }
 }
 
-// Centro di rotazione di uno scaling (senza, si parte dall'angolo in alto a
-// sinistra). Va impostato una volta sola, alla costruzione del widget.
+// Centre of rotation for a scale (without it, scaling starts from the top
+// left corner). It is set once, when the widget is built.
 function pivot(a) {
     try {
         a.set_pivot_point(0.5, 0.5);
-    } catch (e) { /* ignora */ }
+    } catch (e) { /* ignore */ }
 }
 
-// Regola generale: niente animazioni se sono disattivate.
+// General rule: no animations when they are switched off.
 function animOn(a) {
     return !!a && _anim.enabled;
 }
 
-/* Pressione. Ogni sequenza finisce SEMPRE a scala 1: cosi' anche se due
- * animazioni si sovrappongono il risultato finale e' sempre corretto. */
+/* Press. Every sequence ALWAYS ends at scale 1: so even if two animations
+ * overlap, the final result is always correct. */
 
 function pressDown(a) {
     if (!animOn(a))
@@ -272,13 +361,13 @@ function pressDown(a) {
     try {
         a.ease({
             scale_x: _anim.pressScale,
-            // Un filo piu' schiacciata in verticale: e' quello che rende la
-            // pressione "liquida" invece che un semplice ridimensionamento.
+            // A touch more squashed vertically: that is what makes the
+            // press feel "liquid" rather than a plain resize.
             scale_y: _anim.pressScale - _anim.pressSquash,
             duration: _anim.pressDown,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         });
-    } catch (e) { /* attore gia' distrutto */ }
+    } catch (e) { /* actor already destroyed */ }
 }
 
 function pressUp(a) {
@@ -299,15 +388,15 @@ function pressUp(a) {
                 mode: Clutter.AnimationMode.EASE_OUT_SINE,
             }),
         });
-    } catch (e) { /* attore gia' distrutto */ }
+    } catch (e) { /* actor already destroyed */ }
 }
 
-// Collega un bottone: si comprime APPENA lo premi e torna su quando lasci.
-// St.Button espone la proprieta' "pressed" (gestita da un ClutterPressGesture,
-// quindi vale anche per touch e tastiera) e la notifica quando cambia: e'
-// esattamente l'istante della pressione, non del rilascio.
-// "w" riceve la pressione, "target" e' quello che si anima (per le pillole:
-// premi il pallino, si comprime tutta la pillola).
+// Wires a button: it compresses the MOMENT you press it and comes back when
+// you release. St.Button exposes the "pressed" property (driven by a
+// ClutterPressGesture, so it also covers touch and keyboard) and notifies when
+// it changes: that is exactly the instant of the press, not the release.
+// "w" receives the press, "target" is the one that animates (for the pills:
+// you press the bubble, the whole pill compresses).
 function bindPress(w, target = w) {
     if (!(w instanceof St.Button))
         return;
@@ -319,13 +408,13 @@ function bindPress(w, target = w) {
     });
 }
 
-// Piccolo "pop" quando un widget cambia stato (bolle / cerchi).
+// Small "pop" when a widget changes state (bubbles / circles).
 function pop(a, delay = _anim.popDelay) {
-    // popScale 1 = spento (comportamento predefinito: i pallini seguono la pillola)
+    // popScale 1 = off (default: the bubbles follow the pill)
     if (_anim.popScale === 1 || !animOn(a))
         return;
     const go = () => {
-        if (a._macEntering)   // se intanto è ripartita l'entrata, salto
+        if (a._macEntering)   // skip if the entrance restarted in the meantime
             return;
         try {
             a.ease({
@@ -340,7 +429,7 @@ function pop(a, delay = _anim.popDelay) {
                     mode: Clutter.AnimationMode.EASE_OUT_BACK,
                 }),
             });
-        } catch (e) { /* attore già distrutto */ }
+        } catch (e) { /* actor already destroyed */ }
     };
     if (delay > 0)
         later(delay, go);
@@ -348,7 +437,7 @@ function pop(a, delay = _anim.popDelay) {
         go();
 }
 
-// Tessera larga con cerchio-icona (toggle) e area testo (menù)
+// Wide tile with an icon circle (toggle) and a text area (menu)
 function wideTile(iconName, title, subtitle, extraClass, onToggle, onMenu) {
     const btn = new St.BoxLayout({
         style_class: `mac-tile ${extraClass}`,
@@ -357,7 +446,7 @@ function wideTile(iconName, title, subtitle, extraClass, onToggle, onMenu) {
     });
     const row = new St.BoxLayout({y_align: Clutter.ActorAlign.CENTER, style_class: 'mac-tile-row', x_expand: true});
     
-    // Il cerchio ora è un bottone indipendente (per attivare/disattivare)
+    // The circle is now an independent button (to switch it on/off)
     const bubble = new St.Button({
         style_class: 'mac-bubble',
         y_align: Clutter.ActorAlign.CENTER,
@@ -365,11 +454,11 @@ function wideTile(iconName, title, subtitle, extraClass, onToggle, onMenu) {
         reactive: true,
         child: icon(iconName),
     });
-    // Si comprime appena premi (pallino o testo), non al rilascio.
+    // Compresses as soon as you press it (bubble or text), not on release.
     bindPress(bubble, btn);
     bubble.connect('clicked', () => onToggle?.());
 
-    // La parte col testo apre il menù delle impostazioni
+    // The text part opens the settings menu
     const textBtn = new St.Button({
         y_align: Clutter.ActorAlign.CENTER,
         x_expand: true,
@@ -417,7 +506,7 @@ function setOn(widget, on) {
         widget.add_style_pseudo_class('checked');
     else
         widget.remove_style_pseudo_class('checked');
-    // Solo se lo stato è DAVVERO cambiato: niente pop a ogni sincronizzazione.
+    // Only when the state REALLY changed: no pop on every sync.
     if (was !== on)
         pop(widget);
 }
@@ -438,10 +527,10 @@ function sliderTile(title, lowIcon, highIcon, onTrail) {
     const slider = new Slider(0.5);
     slider.x_expand = true;
     slider.y_align = Clutter.ActorAlign.CENTER;
-    // Mentre trascini, la tessera si "solleva" un po' e si riabbassa al
-    // rilascio. (Il pallino dello slider è disegnato in Cairo da BarLevel e
-    // non è un attore a sé: ingrandirlo durante il drag sposterebbe anche la
-    // mappatura del valore, quindi non lo facciamo.)
+    // While you drag, the tile "lifts" a little and settles back on
+    // release. (The slider handle is drawn in Cairo by BarLevel and is not a
+    // separate actor: scaling it during the drag would also shift the value
+    // mapping, so we do not do that.)
     slider.connect('drag-begin', () => {
         if (!animOn(box))
             return;
@@ -481,7 +570,7 @@ function sliderTile(title, lowIcon, highIcon, onTrail) {
     return asGlassSlider(box);
 }
 
-/* ---------- estensione ---------- */
+/* ---------- extension ---------- */
 export default class MacControlCentre extends Extension {
     enable() {
         ICON_DIR = `${this.path}/icons`;
@@ -489,9 +578,9 @@ export default class MacControlCentre extends Extension {
         this._ids = [];
         this._artUrl = null;
         this._building = false;
-        this._openGen = 0;      // serve a invalidare i timer dell'animazione
+        this._openGen = 0;      // invalidates the pending animation timers
         this._enterActors = [];
-        ensureAnimFile();       // crea ~/.config/pulsar-cc/animazione.json
+        ensureAnimFile();       // creates ~/.config/pulsar-cc/animazione.json
 
         this._ifaceSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
         this._notifSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.notifications'});
@@ -503,7 +592,7 @@ export default class MacControlCentre extends Extension {
 
         this._buildPanel();
 
-        // Toglie il contenuto originale delle Impostazioni rapide dal menu
+        // Removes the original Quick Settings content from the menu
         const box = this._qs.menu.box;
         this._removed = [];
         box.get_children().forEach((child, i) => {
@@ -521,13 +610,13 @@ export default class MacControlCentre extends Extension {
 
         this._ids.push([this._qs.menu, this._qs.menu.connect('open-state-changed', (_m, open) => {
             if (open) {
-                // Prima l'entrata in cascata, poi la sincronizzazione: così i
-                // "pop" di stato non si sovrappongono all'animazione di apertura.
+                // First the cascading entrance, then the sync: so the state
+                // "pop"s never overlap the opening animation.
                 this._startEntrance();
                 this._refresh();
             }
         })]);
-        // Aggiorna play/pausa e titolo appena il lettore cambia stato
+        // Refreshes play/pause and the title as soon as the player changes state
         this._subs = [
             Gio.DBus.session.signal_subscribe(null, 'org.freedesktop.DBus.Properties',
                 'PropertiesChanged', MPRIS_PATH, null, Gio.DBusSignalFlags.NONE,
@@ -540,7 +629,7 @@ export default class MacControlCentre extends Extension {
     }
 
     disable() {
-        this._openGen = (this._openGen ?? 0) + 1;   // ferma i timer pendenti
+        this._openGen = (this._openGen ?? 0) + 1;   // stops the pending timers
         for (const id of this._subs ?? [])
             Gio.DBus.session.signal_unsubscribe(id);
         this._subs = [];
@@ -551,7 +640,7 @@ export default class MacControlCentre extends Extension {
         this._panel = null;
         try {
             this._qs.menu.actor.translation_x = 0;
-        } catch (e) { /* ignora */ }
+        } catch (e) { /* ignore */ }
         for (const [child, i] of this._removed ?? [])
             this._qs.menu.box.insert_child_at_index(child, i);
         this._removed = [];
@@ -559,10 +648,10 @@ export default class MacControlCentre extends Extension {
         this._mixer = null;
     }
 
-    /* Entrata in cascata delle tessere all'apertura del pannello.
-     * Il contenitore (il "box pointer") fa già la sua animazione di 150 ms
-     * (dissolvenza + scala 0.96), quindi qui NON lo tocchiamo: aggiungiamo solo
-     * la cascata dei singoli widget, che è ciò che manca rispetto a macOS. */
+    /* Cascading entrance of the tiles when the panel opens.
+     * The container (the "box pointer") already runs its own 150 ms animation
+     * (fade + scale 0.96), so we do NOT touch it here: we only add the cascade
+     * of the individual widgets, which is what MacOS does. */
     _startEntrance() {
         loadAnim();
         const gen = ++this._openGen;
@@ -580,7 +669,7 @@ export default class MacControlCentre extends Extension {
                     a.scale_x = 1;
                     a.scale_y = 1;
                     a.translation_y = 0;
-                } catch (e) { /* ignora */ }
+                } catch (e) { /* ignore */ }
             }
             return;
         }
@@ -589,7 +678,7 @@ export default class MacControlCentre extends Extension {
             if (!a)
                 return;
             a._macEntering = true;
-            a._macPressed = false;   // se il pannello si e' chiuso mentre era premuto
+            a._macPressed = false;   // the panel was closed while it was pressed
             try {
                 a.remove_all_transitions();
                 a.opacity = 0;
@@ -604,10 +693,10 @@ export default class MacControlCentre extends Extension {
                 if (this._openGen !== gen || !this._panel)
                     return;
                 a.ease({
-                    // "opacity" per primo: l'onComplete è legato alla prima
-                    // proprietà e l'opacità è l'unica che nessun'altra
-                    // animazione tocca, quindi _macEntering viene sempre
-                    // azzerato (anche se nel frattempo premi una tessera).
+                    // "opacity" first: the onComplete is bound to the first
+                    // property, and opacity is the only one that no other
+                    // animation touches, so _macEntering is always cleared
+                    // (even if you press a tile in the meantime).
                     opacity: 255,
                     scale_x: _anim.enterOvershoot,
                     scale_y: _anim.enterOvershoot,
@@ -616,10 +705,10 @@ export default class MacControlCentre extends Extension {
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                     onComplete: () => {
                         a._macEntering = false;
-                        // Secondo tempo: assestamento morbido (il "rimbalzino"
-                        // dell'arrivo). Saltato se nel frattempo stai premendo:
-                        // in quel caso comanda la pressione, che comunque
-                        // finisce a scala 1.
+                        // Second phase: soft settle (the little "bounce" of the
+                        // arrival). Skipped if you are pressing at the same
+                        // time: then the press takes over, and it ends at
+                        // scale 1 anyway.
                         if (a._macPressed)
                             return;
                         a.ease({
@@ -638,7 +727,7 @@ export default class MacControlCentre extends Extension {
         const panel = new St.BoxLayout({vertical: true, style_class: 'mac-cc'});
         this._panel = panel;
 
-        /* Colonne sinistra / destra */
+        /* Left / right columns */
         const top = new St.BoxLayout({style_class: 'mac-row'});
         const left = new St.BoxLayout({vertical: true, style_class: 'mac-col'});
         const right = new St.BoxLayout({vertical: true, style_class: 'mac-col'});
@@ -651,7 +740,7 @@ export default class MacControlCentre extends Extension {
             () => this._toggleBt(), 
             () => { this._qs.menu.close(); launch('gnome-control-center bluetooth'); }
         );
-        this._night = wideTile('mc:sun-horizon', 'Luce notturna', '', '', 
+        this._night = wideTile('mc:sun-horizon', tr('night'), '', '', 
             () => this._toggleNight(), 
             () => { this._qs.menu.close(); launch('gnome-control-center display'); }
         );
@@ -678,11 +767,11 @@ export default class MacControlCentre extends Extension {
         top.add_child(right);
         panel.add_child(top);
 
-        /* Riga: modalita' scura, screenshot, Non disturbare */
+        /* Row: dark mode, screenshot, Do Not Disturb */
         const row4 = new St.BoxLayout({style_class: 'mac-row'});
         const circles = new St.BoxLayout({style_class: 'mac-row'});
         
-        // Tolto mac-blue fisso, userà :checked
+        // Fixed mac-blue removed, :checked is used instead
         this._dark = circleButton('mc:contrast', '', () => this._toggleDark());
         circles.add_child(this._dark);
         this._shot = circleButton('mc:screenshot', '', () => {
@@ -693,7 +782,7 @@ export default class MacControlCentre extends Extension {
             });
         });
         circles.add_child(this._shot);
-        this._dnd = wideTile('mc:moon', 'Non disturbare', '', '', 
+        this._dnd = wideTile('mc:moon', tr('dnd'), '', '', 
             () => this._toggleDnd(), 
             () => { this._qs.menu.close(); launch('gnome-control-center notifications'); }
         );
@@ -701,9 +790,9 @@ export default class MacControlCentre extends Extension {
         row4.add_child(this._dnd);
         panel.add_child(row4);
 
-        /* Slider */
-        this._display = sliderTile('Schermo', 'mc:sun-min', 'mc:sun-max');
-        this._sound = sliderTile('Audio', 'mc:speaker-low', 'mc:speaker-high', () => {
+        /* Sliders */
+        this._display = sliderTile(tr('display'), 'mc:sun-min', 'mc:sun-max');
+        this._sound = sliderTile(tr('sound'), 'mc:speaker-low', 'mc:speaker-high', () => {
             this._qs.menu.close();
             launch('gnome-control-center sound');
         });
@@ -737,8 +826,8 @@ export default class MacControlCentre extends Extension {
             }
         });
 
-        // Ordine in cui i widget entrano quando apri il pannello: da sinistra a
-        // destra, dall'alto in basso (come fa macOS).
+        // Order in which the widgets enter when you open the panel: left to
+        // right, top to bottom (like MacOS does).
         this._enterActors = [
             this._wifi, this._bt, this._night,
             this._mediaTile, this._stage, this._mirror,
@@ -758,9 +847,9 @@ export default class MacControlCentre extends Extension {
             x_expand: true,
         }));
 
-        // Copertina nell'angolo in alto a sinistra.
-        // Porta già LG_OVERRIDE nello stile (vedi il commento su LG_OVERRIDE):
-        // così Liquid Glass la ignora del tutto e la copertina non viene toccata.
+        // Album art in the top-left corner.
+        // It already carries LG_OVERRIDE in its style (see the comment above):
+        // Liquid Glass then ignores it entirely and the album art is untouched.
         this._art = new St.Widget({
             style_class: 'mac-media-art',
             style: LG_OVERRIDE,
@@ -769,17 +858,16 @@ export default class MacControlCentre extends Extension {
         });
 
         this._mediaTitle = new St.Label({
-            text: 'Non in riproduzione',
+            text: tr('notPlaying'),
             style_class: 'mac-title mac-media-title',
             x_align: Clutter.ActorAlign.START,
         });
         this._mediaTitle.clutter_text.ellipsize = Pango.EllipsizeMode.END;
 
-        // I tasti vengono centrati con due spaziatori elastici ai lati: il
-        // riquadro occupa tutta la larghezza e i due spaziatori si dividono lo
-        // spazio avanzato in parti uguali. (x_align da solo non bastava: il
-        // layout della tessera allargava comunque il riquadro e i tasti
-        // finivano spostati verso destra.)
+        // The buttons are centred with two elastic spacers on each side: the
+        // box takes the full width and the two spacers split the leftover
+        // space in equal parts. (x_align alone was not enough: the tile layout
+        // expanded the box anyway and the buttons ended up shifted right.)
         const controls = new St.BoxLayout({
             style_class: 'mac-media-controls',
             x_expand: true,
@@ -808,7 +896,7 @@ export default class MacControlCentre extends Extension {
         };
 
         this._playBtn = mk('play', 'PlayPause');
-        pivot(this._playBtn.child);   // il glifo ruota/scala dal suo centro
+        pivot(this._playBtn.child);   // the glyph rotates/scales from its own centre
         controls.add_child(spacer());
         controls.add_child(mk('rewind', 'Previous'));
         controls.add_child(this._playBtn);
@@ -822,7 +910,7 @@ export default class MacControlCentre extends Extension {
         return tile;
     }
 
-    // Mostra la copertina (file locale o immagine scaricata da internet)
+    // Shows the album art (local file or image downloaded from the internet)
     _setArt(url) {
         if (url === this._artUrl)
             return;
@@ -834,10 +922,10 @@ export default class MacControlCentre extends Extension {
         const apply = path => {
             if (this._artUrl !== url || !this._panel)
                 return;
-            // background-size = dimensione esatta del riquadro (46x46, vedi CSS):
-            // così l'immagine riempie il riquadro e il suo border-radius (11px)
-            // può ritagliarla con gli angoli tondi (se fosse più piccola gli
-            // spigoli interni dell'immagine resterebbero quadrati).
+            // background-size = exact size of the box (46x46, see CSS): this way
+            // the image fills the box and its border-radius (11px) can crop it
+            // with rounded corners (if it were any smaller the inner corners of
+            // the image would stay square).
             this._art.set_style(`${LG_OVERRIDE} background-image: url("file://${path}"); background-size: 46px 46px;`);
         };
         if (url.startsWith('file://')) {
@@ -869,7 +957,7 @@ export default class MacControlCentre extends Extension {
         }
     }
 
-    /* ---------- azioni ---------- */
+    /* ---------- actions ---------- */
     _toggleWifi() {
         propGet(Gio.DBus.system, 'org.freedesktop.NetworkManager', '/org/freedesktop/NetworkManager',
             'org.freedesktop.NetworkManager', 'WirelessEnabled', v => {
@@ -916,29 +1004,29 @@ export default class MacControlCentre extends Extension {
         this._refresh();
     }
 
-    /* ---------- sincronizzazione stato ---------- */
+    /* ---------- state sync ---------- */
     _refresh() {
         this._building = true;
 
         propGet(Gio.DBus.system, 'org.freedesktop.NetworkManager', '/org/freedesktop/NetworkManager',
             'org.freedesktop.NetworkManager', 'WirelessEnabled', on => {
-                setOn(this._wifi._bubble, !!on); // Usa _bubble invece del tile intero!
-                this._wifi._sub.text = on ? 'Attivo' : 'Non attivo';
+                setOn(this._wifi._bubble, !!on); // Uses _bubble instead of the whole tile!
+                this._wifi._sub.text = on ? tr('on') : tr('off');
             });
         propGet(Gio.DBus.system, 'org.bluez', '/org/bluez/hci0', 'org.bluez.Adapter1', 'Powered', on => {
             setOn(this._bt._bubble, !!on);
-            this._bt._sub.text = on ? 'Attivo' : 'Non attivo';
+            this._bt._sub.text = on ? tr('on') : tr('off');
         });
 
         const night = this._colorSettings?.get_boolean('night-light-enabled') ?? false;
         setOn(this._night._bubble, night);
-        this._night._sub.text = night ? 'Attiva' : 'Non attiva';
+        this._night._sub.text = night ? tr('onF') : tr('offF');
 
         const dnd = !this._notifSettings.get_boolean('show-banners');
         setOn(this._dnd._bubble, dnd);
-        this._dnd._sub.text = dnd ? 'Attivo' : 'Non attivo';
+        this._dnd._sub.text = dnd ? tr('on') : tr('off');
         
-        // Sincronizza stato modalità scura
+        // Syncs the dark mode state
         const dark = this._ifaceSettings.get_string('color-scheme') === 'prefer-dark';
         setOn(this._dark, dark);
 
@@ -970,22 +1058,22 @@ export default class MacControlCentre extends Extension {
         this._refreshMedia();
     }
 
-    // Cambia il glifo play/pausa. Se le animazioni sono attive lo fa con una
-    // dissolvenza incrociata (il glifo si rimpicciolisce e sfuma, poi il nuovo
-    // appare con un rimbalzo). Il confronto con _macGlyph evita di rifare
-    // l'animazione a ogni sincronizzazione (che arriva molto spesso).
+    // Changes the play/pause glyph. With animations enabled it uses a
+    // crossfade (the glyph shrinks and fades, then the new one appears with a
+    // bounce). The comparison against _macGlyph avoids replaying the animation
+    // on every sync (which arrives very often).
     _setPlayGlyph(name) {
         const ic = this._playBtn?.child;
         if (!ic || ic._macGlyph === name)
             return;
-        const first = ic._macGlyph === undefined;   // prima volta: senza animazione
+        const first = ic._macGlyph === undefined;   // first time: no animation
         ic._macGlyph = name;
         if (first || !_anim.enabled) {
             ic.gicon = symbol(name);
             return;
         }
         ic.ease({
-            opacity: 0,   // per primo: ci lega l'onComplete
+            opacity: 0,   // first: it binds the onComplete for us
             scale_x: 0.7,
             scale_y: 0.7,
             duration: _anim.iconOut,
@@ -1008,7 +1096,7 @@ export default class MacControlCentre extends Extension {
             if (!this._panel)
                 return;
             if (!name) {
-                this._mediaTitle.text = 'Non in riproduzione';
+                this._mediaTitle.text = tr('notPlaying');
                 this._setPlayGlyph('play');
                 this._setArt(null);
                 return;
@@ -1030,10 +1118,10 @@ export default class MacControlCentre extends Extension {
                 this._setPlayGlyph(playing ? 'pause' : 'play');
                 try {
                     const m = md.deepUnpack();
-                    this._mediaTitle.text = m['xesam:title']?.deepUnpack() || 'Non in riproduzione';
+                    this._mediaTitle.text = m['xesam:title']?.deepUnpack() || tr('notPlaying');
                     this._setArt(m['mpris:artUrl']?.deepUnpack() ?? null);
                 } catch (e) {
-                    this._mediaTitle.text = 'Non in riproduzione';
+                    this._mediaTitle.text = tr('notPlaying');
                     this._setArt(null);
                 }
             });

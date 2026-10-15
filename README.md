@@ -1,47 +1,47 @@
-# Pulsar CC 27 — Centro di controllo macOS per GNOME
+# Pulsar CC 27 — MacOS-style Control Center for GNOME
 
-Un **Centro di controllo in stile macOS** per GNOME Shell 50, con effetto
-**Liquid Glass**. Le tessere, i quattro cerchi, il lettore multimediale e gli
-slider sono tutti marcati come "toggle" così che l'estensione *Liquid Glass*
-applichi il vetro **a tutto**, non solo ai pulsanti.
+A **MacOS-style Control Center** for GNOME Shell 50 with a **Liquid Glass**
+effect. The tiles, the four circles, the media player and the sliders are all
+marked as "toggles" so that the *Liquid Glass* extension applies the glass to
+**everything**, not only to the buttons.
 
-Realizzato da **[Agnell02010](https://github.com/Agnell02010)**.
+Created by **[Agnell02010](https://github.com/Agnell02010)**.
 
 ![GNOME Shell 50](https://img.shields.io/badge/GNOME%20Shell-50-blue)
-![Licenza GPL-2.0](https://img.shields.io/badge/licenza-GPL--2.0--or--later-green)
+![License GPL-2.0](https://img.shields.io/badge/license-GPL--2.0--or--later-green)
 
 ---
 
-## ✨ Cosa contiene
+## ✨ What's included
 
-| Elemento | Descrizione |
+| Item | Description |
 |---|---|
-| **Tessere** | Wi-Fi/Bluetooth (a pillola), Aereo, Non disturbare, Risparmio energetico, Tema scuro, Screenshot, Registra schermo, Contrasto |
-| **4 cerchi** | cerchi perfetti in stile macOS (con effetto vetro) |
-| **Lettore** | titolo, artista, copertina arrotondata, tasti *rewind / play-pausa / forward* centrati |
-| **Slider** | volume e luminosità allineati, barra sottile come su macOS |
-| **Icone** | set di icone SF Symbol, normalizzate 1:1 con macOS |
+| **Tiles** | Wi-Fi/Bluetooth (pill shaped), Airplane, Do Not Disturb, Power Saving, Dark Mode, Screenshot, Screen Recording, Contrast |
+| **4 circles** | perfect MacOS-style circles (with the glass effect) |
+| **Player** | title, artist, rounded album art, centred rewind / play-pause / forward buttons |
+| **Sliders** | volume and brightness aligned, thin bar like on MacOS |
+| **Icons** | SF Symbol icon set, normalised 1:1 with MacOS |
 | **Font** | San Francisco (`SF UI Text`) |
-| **Vetro** | Liquid Glass applicato a ogni elemento del pannello |
-| **Animazioni** | apertura a cascata, pressione elastica, pop di stato, crossfade play/pausa — regolabili senza logout |
+| **Glass** | Liquid Glass applied to every element of the panel |
+| **Animations** | cascading open, press feedback, crossfade play/pause — tunable without logging out |
 
 ---
 
-## 📋 Requisiti
+## 📋 Requirements
 
-1. **GNOME Shell 50** (funziona su Wayland e X11).
-2. **Estensione [Liquid Glass](https://extensions.gnome.org/extension/7344/liquid-glass/)**
-   installata e attiva (`liquid-glass@thinkingcoding1231.gmail.com`).
-   *Senza di essa l'estensione funziona lo stesso, ma non compare l'effetto vetro.*
-3. *(Consigliato)* tema GNOME Shell **MacTahoe-Dark** per il look 1:1.
-   L'estensione è comunque autoprotetta contro i temi che spostano i figli
-   delle tessere: il lettore resta centrato anche con altri temi.
-4. *(Consigliato)* estensione **User Themes** per applicare il tema.
-5. *(Per il lettore)* un lettore MPRIS qualsiasi (Spotify, Firefox, ecc.).
+1. **GNOME Shell 50** (works on Wayland and X11).
+2. The **[Liquid Glass](https://extensions.gnome.org/extension/7344/liquid-glass/)**
+   extension installed and enabled (`liquid-glass@thinkingcoding1231.gmail.com`).
+   *Without it the extension still works, just without the glass effect.*
+3. *(Recommended)* the **MacTahoe-Dark** GNOME Shell theme for the 1:1 look.
+   The extension also protects itself against themes that move the tile
+   children: the player stays centred even with other themes.
+4. *(Recommended)* the **User Themes** extension, to apply the theme.
+5. *(For the player)* any MPRIS player (Spotify, Firefox, …).
 
 ---
 
-## 🚀 Installazione (amico)
+## 🚀 Installation (for a friend)
 
 ```bash
 git clone https://github.com/Agnell02010/Pulsar-CC-27-Gnome.git
@@ -49,226 +49,221 @@ cd Pulsar-CC-27-Gnome
 ./install.sh
 ```
 
-Lo script:
+The script:
 
-1. copia l'estensione in `~/.local/share/gnome-shell/extensions/`;
-2. la abilita;
-3. chiede se applicare il profilo **Liquid Glass** incluso (consigliato: NO_BLUR);
-4. dice cosa fare per finire (logout/login).
+1. copies the extension to `~/.local/share/gnome-shell/extensions/`;
+2. enables it;
+3. asks whether to apply the bundled **Liquid Glass** profile (recommended: NO_BLUR);
+4. tells you what to do next (logout/login).
 
-### Manuale (se preferisci)
+### Manual (if you prefer)
 
 ```bash
-# 1. estensione
+# 1. extension
 mkdir -p ~/.local/share/gnome-shell/extensions
 cp -r macos-control-centre-lg@pulsar.local ~/.local/share/gnome-shell/extensions/
 gnome-extensions enable macos-control-centre-lg@pulsar.local
 
-# 2. Liquid Glass (profilo consigliato, senza blur)
+# 2. Liquid Glass (recommended profile, no blur)
 dconf load /org/gnome/shell/extensions/liquid-glass/ \
     < liquid-glass/liquid_glass_settings\(NO_BLUR\).txt
 
-# 3. esci e rientra (su Wayland serve il logout)
+# 3. log out and back in (required on Wayland)
 ```
 
-> ⚠️ Su **Wayland** le nuove estensioni richiedono un **logout/login** per
-> essere caricate. Su X11 basta `Alt+F2` → `r`.
+> ⚠️ On **Wayland** new extensions need a **logout/login** to be loaded.
+> On X11, `Alt+F2` → `r` is enough.
 
-### Dopo il login
+### After logging in
 
-Premi **`Super+S`** per aprire il Centro di controllo (o clicca l'icona di
-sistema in alto a destra).
+Press **`Super+S`** to open the Control Center (or click the system icon in
+the top right corner).
 
 ---
 
-## 🎛️ Profili Liquid Glass
+## 🎛️ Liquid Glass profiles
 
-Nella cartella `liquid-glass/` trovi due profili pronti:
+The `liquid-glass/` folder contains two ready-made profiles:
 
-| Profilo | Effetto | Uso |
+| Profile | Effect | Use |
 |---|---|---|
-| `liquid_glass_settings(NO_BLUR).txt` | vetro **senza** sfocatura | **consigliato**, più leggero |
-| `liquid_glass_settings(BLUR).txt` | vetro **con** sfocatura | effetto più "morbido" |
+| `liquid_glass_settings(NO_BLUR).txt` | glass **without** blur | **recommended**, lighter |
+| `liquid_glass_settings(BLUR).txt` | glass **with** blur | "softer" look |
 
-Applichi un profilo con:
+Apply a profile with:
 
 ```bash
 dconf load /org/gnome/shell/extensions/liquid-glass/ < liquid-glass/liquid_glass_settings\(NO_BLUR\).txt
 ```
 
-oppure con gli script inclusi:
+or with the bundled scripts:
 
 ```bash
 ./liquid-glass/applica-profilo.sh no-blur
 ./liquid-glass/applica-profilo.sh blur
 ```
 
-I valori chiave per il Centro di controllo sono:
+The key values for the Control Center are:
 
 ```
-quick-settings-apply-to=1                # modalità "Toggles" (vetro su tutto)
-quick-settings-toggle-corner-radius=30.0 # raggio delle tessere (vetro che combacia)
-quick-settings-glass-expand=0            # il vetro NON deve sbordare dal pannello
+quick-settings-apply-to=1                # "Toggles" mode (glass on everything)
+quick-settings-toggle-corner-radius=30.0 # tile corner radius (glass that lines up)
+quick-settings-glass-expand=0            # the glass must NOT overflow the panel
 ```
 
 ---
 
-## 🎬 Animazioni (e come regolarle senza logout)
+## 🎬 Animations (and how to tune them without logging out)
 
-L'estensione replica le animazioni in stile macOS:
+The extension reproduces MacOS-style animations:
 
-| Animazione | Cosa fa |
+| Animation | What it does |
 |---|---|
-| **Apertura a cascata** | all'apertura le tessere entrano una dopo l'altra da sinistra a destra: arrivano un po' più piccole, "sorpassano" di poco la dimensione finale e poi si assestano (effetto liquido) |
-| **Pressione** | le tessere, i cerchi, i tasti del lettore e AirPlay si comprimono **appena li premi** (non al rilascio) e tornano su con un rimbalzo morbido, con un piccolo schiacciamento verticale |
-| **Play/Pausa** | il glifo cambia con una dissolvenza incrociata |
-| **Slider** | la tessera di volume/luminosità si solleva leggermente mentre trascini lo slider (come già prima) |
+| **Cascading open** | when the panel opens, the tiles arrive one after another from left to right: they start slightly smaller, overshoot the final size a little and then settle (liquid effect) |
+| **Press** | tiles, circles, player buttons and AirPlay compress **the moment you press them** (not on release) and come back with a soft bounce, plus a slight vertical squash |
+| **Play/Pause** | the glyph changes with a crossfade |
+| **Slider** | the volume/brightness tile lifts slightly while you drag the slider (as before) |
 
-> 💡 I pallini dentro le pillole **non** fanno più un rimbalzo a parte: si muovono
-> insieme alla pillola, come se fossero un pezzo unico (niente doppio rimbalzo).
-> Se preferisci il vecchio "pop", metti `"popScale": 1.12` nel file qui sotto.
+> 💡 The bubbles inside the pills **no longer** bounce on their own: they move
+> together with the pill, as if they were a single piece (no double bounce).
+> If you prefer the old "pop", set `"popScale": 1.12` in the file below.
 
-> ⚠️ GNOME (St) **non supporta le animazioni in CSS**, quindi sono scritte in
-> JavaScript. La prima volta che installi questa versione serve **un logout**
-> (una volta sola).
+> ⚠️ GNOME (St) **does not support CSS animations**, so they are written in
+> JavaScript. The first time you install this version you need **one logout**
+> (once only).
 
-**Per regolarle NON serve più fare logout.** Alla prima accensione viene creato
-questo file:
+**Tuning them needs NO logout.** On first run the extension creates this file:
 
 ```
 ~/.config/pulsar-cc/animazione.json
 ```
 
-viene **riletto a ogni apertura** del Centro di controllo: modifichi un numero,
-riapri il pannello e vedi subito l'effetto. Se il file è assente o ha un errore,
-si usano i valori predefiniti (nessun rischio).
+It is **re-read every time** the Control Center opens: change a number, reopen
+the panel and you see the effect right away. If the file is missing or contains
+an error, the defaults are used (nothing can break).
 
 ```jsonc
 {
-    "enabled": true,          // false = nessuna animazione
+    "enabled": true,          // false = no animation at all
 
-    "enterBase": 20,          // ritardo iniziale della cascata (ms)
-    "enterStep": 20,          // distanza fra due tessere (ms)  ← il "ritmo"
-    "enterDuration": 280,     // durata dell'arrivo (ms)
-    "enterSettle": 150,       // durata dell'assestamento finale (ms)
-    "enterScale": 0.90,       // da che scala parte (1 = solo dissolvenza)
-    "enterRise": 8,           // di quanti px scende dall'alto (0 = niente)
-    "enterOvershoot": 1.02,   // di quanto "sorpassa" prima di assestarsi
+    "enterBase": 20,          // initial delay of the cascade (ms)
+    "enterStep": 20,          // delay between two tiles (ms)  <- the "rhythm"
+    "enterDuration": 280,     // arrival duration (ms)
+    "enterSettle": 150,       // final settle duration (ms)
+    "enterScale": 0.90,       // starting scale (1 = fade only)
+    "enterRise": 8,           // how many px they drop from (0 = none)
+    "enterOvershoot": 1.02,   // how far it overshoots before settling
 
-    "pressScale": 0.94,       // quanto si schiaccia premendo
-    "pressSquash": 0.03,      // schiacciamento extra in verticale (0 = uniforme)
-    "pressDown": 90,          // tempo per schiacciarsi (ms)
-    "pressUp": 260,           // tempo per tornare su, col rimbalzo (ms)
-    "pressOvershoot": 1.02,   // torna su passando leggermente oltre
+    "pressScale": 0.94,       // how much it squashes on press
+    "pressSquash": 0.03,      // extra vertical squash (0 = uniform)
+    "pressDown": 90,          // time to squash (ms)
+    "pressUp": 260,           // time to come back, with bounce (ms)
+    "pressOvershoot": 1.02,   // comes back slightly past the final size
 
-    "popScale": 1.0,          // 1.0 = spento; 1.12 = vecchio "pop" della bolla
+    "popScale": 1.0,          // 1.0 = off; 1.12 = the old bubble "pop"
     "popDown": 110,
     "popUp": 230,
-    "popDelay": 120,          // aspetta che finisca la pressione (ms)
+    "popDelay": 120,          // waits for the press to finish (ms)
 
-    "iconOut": 80,            // play→pausa: uscita del glifo (ms)
-    "iconIn": 200,            // play→pausa: entrata del glifo (ms)
+    "iconOut": 80,            // play→pause: glyph out (ms)
+    "iconIn": 200,            // play→pause: glyph in (ms)
 
-    "sliderLift": 1.02,       // quanto si solleva la tessera trascinando
+    "sliderLift": 1.02,       // how much the tile lifts while dragging
     "sliderUp": 140,
     "sliderDown": 240
 }
 ```
 
-Esempi rapidi:
+Quick examples:
 
-- cascata più lenta e "di lusso": `enterStep: 30`, `enterDuration: 320`
-- più secca/istantanea (stile macOS): `enterStep: 12`, `enterDuration: 180`
-- **ancora più "liquida"**: `enterOvershoot: 1.04`, `pressSquash: 0.05`
-- **niente rimbalzo** (movimento netto): `pressUp: 120`, `pressOvershoot: 1.0`, `enterOvershoot: 1.0`
-- **niente schiacciamento** (compressione uniforme): `pressSquash: 0`
-- **rientro del vecchio pop** sulle bolle: `popScale: 1.12`
-- tutto spento: `enabled: false`
+- slower, "deluxe" cascade: `enterStep: 30`, `enterDuration: 320`
+- crisper/instant (MacOS style): `enterStep: 12`, `enterDuration: 180`
+- **even more "liquid"**: `enterOvershoot: 1.04`, `pressSquash: 0.05`
+- **no bounce** (crisp movement): `pressUp: 120`, `pressOvershoot: 1.0`, `enterOvershoot: 1.0`
+- **no squash** (uniform compression): `pressSquash: 0`
+- **bring back the old bubble pop**: `popScale: 1.12`
+- everything off: `enabled: false`
 
-Una copia del file è anche in [`animazione-esempio.json`](animazione-esempio.json).
+A copy of the file is also in [`animazione-esempio.json`](animazione-esempio.json).
 
 ---
 
-## 🗑️ Disinstallazione
+## 🗑️ Uninstallation
 
 ```bash
 ./uninstall.sh
 ```
 
-Rimuove l'estensione (lascia intatte le impostazioni di Liquid Glass). Poi
-esci e rientra.
+Removes the extension (the Liquid Glass settings are left untouched). Then log
+out and back in.
 
 ---
 
-## 🔧 Struttura del progetto
+## 🔧 Project structure
 
 ```
 .
-├── macos-control-centre-lg@pulsar.local/   # l'estensione GNOME
-│   ├── extension.js                        # logica (pannello, MPRIS, luminosità, animazioni…)
-│   ├── stylesheet.css                      # tutto lo stile (tessere, cerchi, slider)
+├── macos-control-centre-lg@pulsar.local/   # the GNOME extension
+│   ├── extension.js                        # logic (panel, MPRIS, brightness, animations…)
+│   ├── stylesheet.css                      # all the styling (tiles, circles, sliders)
 │   ├── metadata.json
-│   ├── icons/                              # icone SVG in stile SF Symbol
-│   └── *.png                               # bolle / cerchi di sfondo
-├── liquid-glass/                           # profili per l'estensione Liquid Glass
+│   ├── icons/                              # SF Symbol style SVG icons
+│   └── *.png                               # bubble / circle backgrounds
+├── liquid-glass/                           # profiles for the Liquid Glass extension
 │   ├── liquid_glass_settings(NO_BLUR).txt
 │   ├── liquid_glass_settings(BLUR).txt
 │   └── applica-profilo.sh
 ├── install.sh
 ├── uninstall.sh
-├── animazione-esempio.json                 # esempio dei parametri animazioni
+├── animazione-esempio.json                 # example of the animation parameters
 ├── LICENSE
 └── README.md
 ```
 
+> The folder keeps the spelling `centre` because that is the extension UUID —
+> it cannot be changed. Everywhere else this project uses "Control Center".
+
 ---
 
-## ❓ Domande frequenti
+## ❓ FAQ
 
-**Non vedo l'estensione dopo l'installazione.**
-Su Wayland serve un logout/login. Verifica con
+**I don't see the extension after installing.**
+On Wayland you need a logout/login. Check with
 `gnome-extensions list --enabled | grep macos`.
 
-**Il vetro esce fuori dal pannello / sborda.**
-Applica il profilo NO_BLUR (ha `quick-settings-glass-expand=0` e
-`quick-settings-toggle-corner-radius=30.0`) oppure abbassa ancora il raggio.
+**The glass overflows the panel.**
+Apply the NO_BLUR profile (it has `quick-settings-glass-expand=0` and
+`quick-settings-toggle-corner-radius=30.0`) or lower the radius even more.
 
-**Il pannello ha un fondo nero dietro al vetro.**
-L'estensione lo rimuove da sola con `.quick-settings { background: none }`.
-Se hai un tema personalizzato che lo rimette, controlla il tuo tema.
+**The panel has a black background behind the glass.**
+The extension removes it by itself with `.quick-settings { background: none }`.
+If a custom theme puts it back, check your theme.
 
-**Il lettore è spostato a destra.**
-L'estensione neutralizza il padding che i temi (es. MacTahoe) iniettano nei
-figli delle tessere. Se usi un tema diverso, apri una issue.
+**The player is shifted to the right.**
+The extension neutralises the padding that themes (e.g. MacTahoe) inject into
+the tile children. If you use a different theme, open an issue.
 
-**Su che versioni funziona?**
-GNOME Shell 50. Per altre versioni potrebbe servire un adattamento.
-
----
-
-## 📜 Licenza
-
-GPL-2.0-or-later — vedi [LICENSE](LICENSE).
-
-Se preferisci un'altra licenza (MIT, GPL-3.0, …) apri una issue.
+**Which versions does it work on?**
+GNOME Shell 50. Other versions may need some adaptation.
 
 ---
 
-## English (short)
+## 🌍 Languages
 
-A **macOS-style Control Centre** for GNOME Shell 50 with a **Liquid Glass**
-effect applied to *every* element (tiles, circles, media player, sliders).
+The texts shown inside the Control Center follow the language of your PC
+(detected from the session locale). English is the fallback, so something is
+always shown. Included: English, Italian, French, German, Spanish, Portuguese
+(Portugal and Brazil), Dutch, Polish, Russian, Turkish, Ukrainian, Czech,
+Hungarian, Romanian, Greek, Swedish, Danish, Norwegian, Finnish, Japanese,
+Chinese (Simplified), Korean, Indonesian and Vietnamese.
 
-Requirements: GNOME Shell 50, [Liquid Glass](https://extensions.gnome.org/extension/7344/liquid-glass/)
-extension *(optional but needed for the glass)*, optionally the *MacTahoe-Dark*
-shell theme.
+Translations for other languages are welcome: the table lives at the top of
+`macos-control-centre-lg@pulsar.local/extension.js` (the `STRINGS` object).
 
-```bash
-git clone https://github.com/Agnell02010/Pulsar-CC-27-Gnome.git
-cd Pulsar-CC-27-Gnome
-./install.sh          # installs + enables the extension
-# then log out and back in (Wayland)
-```
+---
 
-Press `Super+S` to open the Control Centre. Apply a Liquid Glass profile from
-`liquid-glass/` with `dconf load` (see above). Licensed under GPL-2.0-or-later.
+## 📜 License
+
+GPL-2.0-or-later — see [LICENSE](LICENSE).
+
+If you prefer another license (MIT, GPL-3.0, …) open an issue.

@@ -1,13 +1,13 @@
-/* Il menu: nessun margine extra; lo sfondo vetro lo gestisce Liquid Glass */
+/* The menu: no extra margin; the glass background is handled by Liquid Glass */
 .quick-settings {
     padding: 0;
     min-width: 0;
-    /* Il tema del sistema disegna un fondo scuro sul menu: lo stesso elemento
-       porta sia "popup-menu-content" (background-color: rgba(36,36,36,0.92))
-       sia "quick-settings", e il tema ci applica anche un border-image nero
-       al 25% (assets/menu_x2.svg). Era quello il "bg nero trasparente" che si
-       vedeva dietro le tessere. Qui lo togliamo: sotto resta solo il vetro
-       di Liquid Glass. (St supporta esplicitamente "border-image: none".) */
+    /* The system theme paints a dark background on the menu: the same element
+       carries both "popup-menu-content" (background-color: rgba(36,36,36,0.92))
+       and "quick-settings", and the theme also applies a black border-image at
+       25% (assets/menu_x2.svg). That was the "black translucent background"
+       seen behind the tiles. We remove it here: underneath there is only the
+       Liquid Glass. (St explicitly supports "border-image: none".) */
     background-color: transparent;
     background-image: none;
     border-image: none;
@@ -18,14 +18,14 @@
     padding: 22px;
     spacing: 17px;
     width: 310px;
-    /* Font di macOS (San Francisco). E' l'unico SF presente sul sistema. */
+    /* MacOS font (San Francisco). It is the only SF present on the system. */
     font-family: "SF UI Text", sans-serif;
 }
 .mac-title, .mac-sub, .mac-media-title { font-family: "SF UI Text", sans-serif; }
 .mac-row { spacing: 17px; }
 .mac-col { spacing: 17px; width: 146px; }
 
-/* Tessere standard: 146 x 65 - Trasparenza ottimizzata per Liquid Glass */
+/* Standard tiles: 146 x 65 - transparency tuned for Liquid Glass */
 .mac-tile {
     width: 146px;
     min-width: 146px;
@@ -40,34 +40,33 @@
 .mac-tile-row { spacing: 8px; padding: 0 10px 0 11px; }
 
 /* ---------------------------------------------------------------------------
-   DIFESA DAL TEMA DI GNOME SHELL (qui: MacTahoe-Dark)
+   DEFENCE AGAINST THE GNOME SHELL THEME (here: MacTahoe-Dark)
 
-   Le nostre tessere portano la classe "quick-toggle" perche' serve a Liquid
-   Glass, e il tema installato prende di mira proprio i figli StBoxLayout di
-   quelle tessere:
+   Our tiles carry the "quick-toggle" class because Liquid Glass needs it, and
+   the installed theme targets exactly the StBoxLayout children of those tiles:
 
        .quick-toggle > StBoxLayout      { spacing: 8px;  padding: 0 8px; }
        .quick-toggle:ltr > StBoxLayout  { padding-left: 20px; }
 
-   Quel rientro di 20px il tema se lo prendeva solo dove le nostre regole NON
-   dichiaravano un padding: cosi' i tasti del lettore e la riga degli slider
-   finivano spostati a destra (era questo il "lettore decentrato"). Con un
-   selettore piu' specifico del tema lo azzeriamo in modo esplicito.
+   The theme only applied that 20px inset where our rules did NOT declare a
+   padding: so the player buttons and the slider row ended up shifted to the
+   right (that was the "off-centre player"). With a selector more specific than
+   the theme's we zero it out explicitly.
    --------------------------------------------------------------------------- */
 .mac-cc .quick-toggle > .mac-tile-row       { padding: 0 10px 0 11px; spacing: 8px; }
 .mac-cc .quick-toggle > .mac-media-controls { padding: 0; spacing: 0; margin-bottom: 14px; }
 .mac-cc .quick-toggle > .mac-slider-row     { padding: 0; spacing: 7px; }
 
-/* Cerchio interattivo interno alla tessera (es. On/Off Wi-Fi).
-   Liquid Glass azzera "background-color" su ogni widget riconosciuto, quindi
-   per il pallino uso un'immagine di sfondo (background-image): Liquid Glass
-   non la tocca e il pallino sopravvive. Le PNG sono quadrati bianchi con la
-   trasparenza giusta, ritagliati a cerchio dal border-radius del widget.
-   (Strada scelta perché anche la copertina del lettore usa url("file://...")
-   e funziona.) I percorsi sono RELATIVI al CSS di proposito: St li risolve
-   rispetto alla cartella dell'estensione, quindi l'estensione funziona in
-   qualunque home (non mettere percorsi assoluti /home/... o si rompe per gli
-   altri). */
+/* Interactive circle inside the tile (e.g. Wi-Fi On/Off).
+   Liquid Glass clears "background-color" on every widget it recognises, so for
+   the bubble I use a background image (background-image): Liquid Glass does not
+   touch it and the bubble survives. The PNGs are white squares with the right
+   transparency, cropped to a circle by the widget's border-radius.
+   (This route was chosen because the player album art also uses
+   url("file://...") and it works.) The paths are RELATIVE to the CSS on
+   purpose: St resolves them against the extension folder, so the extension
+   works in any home directory (do not put absolute /home/... paths or it
+   breaks for everyone else). */
 .mac-bubble {
     width: 38px;
     height: 38px;
@@ -84,7 +83,7 @@
 }
 .mac-bubble:checked .mac-icon, .mac-bubble:active .mac-icon { color: black; }
 
-/* Area di testo interattiva per aprire il menù a tendina */
+/* Interactive text area that opens the drop-down menu */
 .mac-tile-text-btn {
     background-color: transparent;
     border-radius: 17px;
@@ -98,7 +97,7 @@
 .mac-title { font-size: 12px; font-weight: 700; color: white; }
 .mac-sub { font-size: 10px; font-weight: 500; color: rgba(255, 255, 255, 0.75); }
 
-/* Pulsanti circolari isolati (es. Tema scuro, Screenshot) */
+/* Standalone round buttons (e.g. Dark Mode, Screenshot) */
 .mac-circle {
     width: 65px;
     min-width: 65px;
@@ -111,9 +110,9 @@
     padding: 0;
 }
 .mac-circle .mac-icon { icon-size: 30px; }
-/* Hover e stato "acceso": uso immagini di sfondo, che Liquid Glass non tocca
-   (altrimenti il vetro azzererebbe il background-color). Da spento resta il
-   vetro del pulsante; da acceso appare il cerchio bianco pieno come su macOS. */
+/* Hover and "on" state: I use background images, which Liquid Glass does not
+   touch (otherwise the glass would clear the background-color). While off the
+   button glass stays; while on the solid white circle appears, like on MacOS. */
 .mac-circle:hover {
     background-image: url("circle-hover.png");
 }
@@ -124,7 +123,7 @@
 }
 .mac-circle:checked .mac-icon, .mac-circle:active .mac-icon { color: black; }
 
-/* Riquadro multimediale (intero) bloccato a 146x146 */
+/* Media player box (whole) locked to 146x146 */
 .mac-media {
     width: 146px;
     min-width: 146px;
@@ -138,7 +137,7 @@
     padding: 0;
 }
 
-/* Copertina quadrata in alto a sinistra (stile macOS) */
+/* Square album art in the top-left corner (MacOS style) */
 .mac-media-art {
     width: 46px;
     min-width: 46px;
@@ -151,7 +150,7 @@
     margin: 16px 0 7px 16px;
 }
 
-/* Titolo del brano */
+/* Track title */
 .mac-media-title { 
     font-size: 11px; 
     font-weight: 600; 
@@ -159,16 +158,17 @@
     margin: 0 14px 0 16px; 
 }
 
-/* Container pulsanti allineato in basso. Lo "spacing" e' 0: la distanza tra i
-   tasti la danno i loro margini (7px per lato = 14px), cosi' i due spaziatori
-   elastici aggiunti nel codice possono centrare la riga senza falsare i vuoti. */
+/* Buttons container aligned at the bottom. The "spacing" is 0: the distance
+   between the buttons comes from their own margins (7px per side = 14px), so
+   the two elastic spacers added in the code can centre the row without
+   distorting the gaps. */
 .mac-media-controls { 
     spacing: 0;
     padding: 0;
     margin-bottom: 14px;
 }
 
-/* Pulsanti del lettore */
+/* Player buttons */
 .mac-media-button,
 .mac-media-button:focus {
     width: 31px;
@@ -202,24 +202,25 @@
 
 .mac-bubble:focus, .mac-circle:focus, .mac-tile-text-btn:focus { box-shadow: none; }
 
-/* Slider (Schermo, Audio) */
+/* Sliders (Display, Sound) */
 .mac-slider-tile {
     width: 271px;
     height: 46px;
     padding: 10px 19px;
-    /* Stesso raggio del vetro dei toggle di Liquid Glass
-       (quick-settings-toggle-corner-radius = 32.5): se il raggio della tessera
-       e' piu' piccolo, i suoi angoli escono fuori dal vetro e "si vede la
-       base" sotto. 32.5 < meta' altezza (34), quindi la forma resta valida. */
+    /* Same corner radius as the Liquid Glass toggles
+       (quick-settings-toggle-corner-radius = 32.5): if the tile radius were
+       smaller, its corners would stick out of the glass and the "base" below
+       would show. 32.5 is less than half the height (34), so the shape stays
+       valid. */
     border-radius: 32.5px;
     background-color: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.18);
     spacing: 1px;
 }
-/* Altezza minima uguale per entrambe le righe: la riga del volume contiene
-   anche il pulsante AirPlay (26px) e quindi e' piu' alta di quella della
-   luminosita', il che faceva finire la barra della luminosita' piu' in alto.
-   Fissando la stessa altezza le due barre sono allineate (1:1). */
+/* Same minimum height for both rows: the volume row also contains the AirPlay
+   button (26px) and is therefore taller than the brightness one, which used to
+   leave the brightness bar higher up. With the same height fixed, the two bars
+   are aligned (1:1). */
 .mac-slider-row { spacing: 7px; padding: 0; min-height: 28px; }
 .mac-slider-tile .slider {
     -slider-height: 5px;
@@ -233,7 +234,7 @@
     min-width: 132px;
 }
 
-/* Pulsante AirPlay accanto al volume */
+/* AirPlay button next to the volume */
 .mac-airplay {
     width: 26px;
     height: 26px;

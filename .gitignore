@@ -1,14 +1,14 @@
-# Backup ed editor
+# Editor backups
 *~
 *.bak
 *.orig
 *.swp
 .DS_Store
 
-# Backup delle impostazioni Liquid Glass
+# Liquid Glass settings backups
 lg-backup/
 *.lg-backup
 
-# Non versionare il tarball di rilascio (si rigenera)
+# The release tarball is not versioned (it is regenerated)
 *.tar.gz
 *.zip
