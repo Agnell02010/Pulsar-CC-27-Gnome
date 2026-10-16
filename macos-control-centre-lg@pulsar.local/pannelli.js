@@ -69,11 +69,14 @@ function pget(dict, key, fallback) {
     return v;
 }
 
-function mkRow(iconName, label, right, chipClass) {
+function mkRow(iconName, label, right, chipClass, glyph) {
     const row = new St.BoxLayout({style_class: 'mac-panel-row', x_expand: true, y_align: Clutter.ActorAlign.CENTER});
-    if (iconName) {
+    if (glyph || iconName) {
         try {
-            const ic = new St.Icon({icon_name: iconName, style_class: 'mac-panel-icon', y_align: Clutter.ActorAlign.CENTER});
+            // An animated glyph (see makeGlyph) replaces the plain St.Icon when
+            // the row has a micro-animation of its own.
+            const ic = glyph ? glyph.actor
+                : new St.Icon({icon_name: iconName, style_class: 'mac-panel-icon', y_align: Clutter.ActorAlign.CENTER});
             if (chipClass) {
                 const chip = new St.Bin({style_class: 'mac-panel-chip ' + chipClass, child: ic,
                     x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER});
@@ -119,6 +122,278 @@ function mkSwitch(on, onChange) {
     return track;
 }
 
+/* ==================== icon micro-animations (glyphs) ====================
+ * A glyph is a stack of St.Icon layers split out of ONE SVG. The split files
+ * live in the icons folder (wifi-1..3, sun-dome/sun-rays/sun-line,
+ * speaker-body/speaker-wave1..3) and, stacked at the same position, redraw the
+ * original artwork pixel for pixel — what changes is that the single parts can
+ * now move on their own: the sun sinks behind its horizon, the wifi arcs light
+ * up one after the other, the speaker waves ripple, the moon tilts, the
+ * contrast knob spins.
+ *
+ * Layers are anchored with a FixedLayout at 0,0 (a BinLayout re-centres
+ * fixed-size children on some Clutter versions, which would move every part),
+ * so they overlay exactly whatever the instance size is.
+ *
+ * Only paint-only properties are animated (opacity / translation / scale /
+ * rotation): nothing is ever re-allocated, so St never runs a layout pass and
+ * Liquid Glass never rebuilds the glass of the tile underneath — which is what
+ * made the panel animations stutter before.
+ */
+const GLYPH_LAYERS = {
+    wifi:     ['wifi-1', 'wifi-2', 'wifi-3'],       // inner arc -> outer arc
+    sun:      ['sun-dome', 'sun-rays', 'sun-line'], // the half sun, its rays, the horizon
+    speaker:  ['speaker-body', 'speaker-wave1', 'speaker-wave2', 'speaker-wave3'],
+    moon:     ['moon'],
+    contrast: ['contrast'],
+};
+
+// Position of the parts inside the original 24x24 viewBox (measured on the
+// SVGs), in viewBox units so a glyph can be built at any size.
+const WIFI_PIVOT = [12 / 24, 19.5 / 24]; // the wifi arcs radiate from the bottom centre
+const SUN_CLIP = 17.66 / 24;             // top edge of the horizon bar
+const SUN_SINK = 7.6;                    // how far the sun sinks, in viewBox units
+const MOON_REST = 1.0;                   // where the moon sits, above the horizon
+const MOON_SINK = 11.0;                  // where the moon waits, below the horizon
+const MOON_SCALE = 0.56;                 // the moon artwork is bigger than the sun
+const A_OUT = Clutter.AnimationMode.EASE_OUT_QUAD;
+const A_SOFT = Clutter.AnimationMode.EASE_OUT_SINE;
+const A_BACK = Clutter.AnimationMode.EASE_OUT_BACK;
+const A_IN = Clutter.AnimationMode.EASE_IN_QUAD;
+
+// `set(state, animate)` never re-plays when the state has not really changed,
+// so the many `_refresh()` calls of extension.js are harmless.
+function makeGlyph(kind, size, h, cls = 'mac-icon') {
+    const anims = () => {
+        try { return !!(h.getAnim && h.getAnim().enabled); } catch (e) { return false; }
+    };
+    const u = n => n * size / 24;   // viewBox units -> px
+
+    const box = new St.Widget({
+        name: `mac-glyph-${kind}`,   // findable in the tree while debugging
+        style_class: cls,
+        layout_manager: new Clutter.FixedLayout(),
+        width: size,
+        height: size,
+        x_align: Clutter.ActorAlign.CENTER,
+        y_align: Clutter.ActorAlign.CENTER,
+        reactive: false,
+        can_focus: false,
+    });
+    const part = (name, parent = box) => {
+        const ic = new St.Icon({name: `layer-${name}`, gicon: h.symbol(name), icon_size: size, reactive: false, can_focus: false});
+        ic.set_position(0, 0);
+        ic.set_pivot_point(0.5, 0.5);
+        parent.add_child(ic);
+        return ic;
+    };
+
+    const g = {kind, actor: box, set: () => {}, pulse: () => {}};
+
+    if (kind === 'wifi') {
+        const arcs = GLYPH_LAYERS.wifi.map(n => part(n));
+        for (const a of arcs)
+            a.set_pivot_point(WIFI_PIVOT[0], WIFI_PIVOT[1]);
+        const OFF = 110;   // wifi off: the arcs stay, just dimmed
+        let on = null;
+        g.set = (state, animate) => {
+            state = !!state;
+            if (state === on)
+                return;
+            on = state;
+            // Lighting up: inner arc, then the middle, then the outer one (and
+            // the other way round when switching off) — the signal "fills in".
+            const seq = state ? arcs : [arcs[2], arcs[1], arcs[0]];
+            const live = animate && anims();
+            seq.forEach((a, i) => {
+                a.remove_all_transitions();
+                a.scale_x = 1;
+                a.scale_y = 1;
+                if (!live) {
+                    a.opacity = state ? 255 : OFF;
+                    return;
+                }
+                if (state) {
+                    a.opacity = 110;
+                    a.scale_x = a.scale_y = 0.55;   // it grows out of the antenna
+                    // Opacity and scale want different curves: an overshoot mode
+                    // on the opacity dips through 0, so it stays linear-ish.
+                    a.ease({opacity: 255, duration: 240, delay: i * 85, mode: A_OUT});
+                    a.ease({scale_x: 1, scale_y: 1, duration: 300, delay: i * 85, mode: A_BACK});
+                } else {
+                    a.ease({opacity: OFF, duration: 220, delay: i * 85, mode: A_SOFT});
+                }
+            });
+        };
+    } else if (kind === 'sun') {
+        // The sun (and the moon taking its place) is clipped at the horizon, so
+        // it really disappears behind it instead of fading on top of it.
+        const clip = new St.Widget({
+            layout_manager: new Clutter.FixedLayout(),
+            width: size,
+            height: Math.max(1, Math.round(u(17.66))),
+            reactive: false,
+        });
+        try {
+            clip.set_clip_to_allocation(true);
+        } catch (e) {
+            try { clip.clip_to_allocation = true; } catch (e2) {}
+        }
+        box.add_child(clip);
+        const dome = part('sun-dome', clip);
+        const moon = part('moon', clip);
+        moon.scale_x = moon.scale_y = MOON_SCALE;
+        const rays = part('sun-rays');
+        const line = part('sun-line');
+
+        // Night light off -> the sun is up; on -> the sun has set, moon up.
+        const rest = state => {
+            for (const a of [dome, rays, line, moon])
+                a.remove_all_transitions();
+            moon.scale_x = moon.scale_y = MOON_SCALE;
+            dome.translation_y = state ? u(SUN_SINK) : 0;
+            dome.opacity = state ? 0 : 255;
+            rays.opacity = state ? 0 : 255;
+            line.opacity = 255;
+            moon.translation_y = u(state ? MOON_REST : MOON_SINK);
+            moon.opacity = state ? 255 : 0;
+        };
+
+        let on = null;
+        g.set = (state, animate) => {
+            state = !!state;
+            if (state === on)
+                return;
+            const first = on === null;
+            on = state;
+            if (!animate || first || !anims()) {
+                rest(state);
+                return;
+            }
+            for (const a of [dome, rays, line]) {
+                a.remove_all_transitions();
+                a.scale_x = 1;
+                a.scale_y = 1;
+            }
+            moon.remove_all_transitions();
+            if (state) {
+                // sunset: the sun sinks behind the horizon while the moon rises
+                dome.translation_y = 0;
+                dome.opacity = 255;
+                dome.ease({translation_y: u(SUN_SINK), duration: 640, mode: A_OUT});
+                dome.ease({opacity: 0, delay: 400, duration: 240, mode: A_SOFT});
+                rays.ease({opacity: 0, delay: 60, duration: 320, mode: A_SOFT});
+                moon.translation_y = u(MOON_SINK);
+                moon.opacity = 0;
+                moon.ease({translation_y: u(MOON_REST), opacity: 255,
+                    duration: 460, delay: 240, mode: A_OUT});
+            } else {
+                // sunrise: the sun climbs back up and the moon sets
+                dome.translation_y = u(SUN_SINK);
+                dome.opacity = 0;
+                dome.ease({translation_y: 0, duration: 640, mode: A_OUT});
+                dome.ease({opacity: 255, duration: 220, mode: A_SOFT});
+                rays.ease({opacity: 255, delay: 320, duration: 300, mode: A_SOFT});
+                moon.translation_y = u(MOON_REST);
+                moon.opacity = 255;
+                moon.ease({translation_y: u(MOON_SINK), duration: 460, mode: A_IN});
+                moon.ease({opacity: 0, duration: 240, mode: A_SOFT});
+            }
+        };
+    } else if (kind === 'speaker') {
+        const body = part('speaker-body');
+        const waves = [part('speaker-wave1'), part('speaker-wave2'), part('speaker-wave3')];
+        let on = null;
+        let lastPulse = 0;
+        g.set = (state, animate) => {
+            state = !!state;
+            if (state === on)
+                return;
+            on = state;
+            const live = animate && anims();
+            waves.forEach((w, i) => {
+                w.remove_all_transitions();
+                w.scale_x = w.scale_y = 1;
+                if (live)
+                    w.ease({opacity: state ? 255 : 0, duration: 240, delay: i * 70, mode: A_SOFT});
+                else
+                    w.opacity = state ? 255 : 0;
+            });
+        };
+        // One wave runs through the arcs, from the speaker outwards.
+        g.pulse = () => {
+            const now = Date.now();
+            if (now - lastPulse < 140)   // the slider fires a lot while dragging
+                return;
+            lastPulse = now;
+            const base = on === false ? 0 : 255;
+            if (!anims())
+                return;
+            body.remove_all_transitions();
+            body.ease({scale_x: 1.05, scale_y: 1.05, duration: 150, mode: A_OUT,
+                onComplete: () => {
+                    try { body.ease({scale_x: 1, scale_y: 1, duration: 220, mode: A_SOFT}); } catch (e) {}
+                }});
+            waves.forEach((w, i) => {
+                w.remove_all_transitions();
+                w.ease({
+                    opacity: 255, scale_x: 1.12, scale_y: 1.12,
+                    duration: 170, delay: i * 85, mode: A_OUT,
+                    onComplete: () => {
+                        try {
+                            w.ease({scale_x: 1, scale_y: 1, opacity: base, duration: 240, mode: A_SOFT});
+                        } catch (e) {}
+                    },
+                });
+            });
+        };
+    } else if (kind === 'moon') {
+        const m = part('moon');
+        const TILT = -16;
+        let on = null;
+        g.set = (state, animate) => {
+            state = !!state;
+            if (state === on)
+                return;
+            const first = on === null;
+            on = state;
+            m.remove_all_transitions();
+            m.scale_x = m.scale_y = 1;
+            if (!animate || first || !anims()) {
+                m.rotation_angle_z = state ? TILT : 0;
+                return;
+            }
+            m.rotation_angle_z = state ? 0 : TILT;   // from the other resting angle
+            m.ease({rotation_angle_z: state ? TILT : 0, duration: 480, mode: A_BACK});
+            m.ease({scale_x: 1.10, scale_y: 1.10, duration: 160, mode: A_OUT,
+                onComplete: () => {
+                    try { m.ease({scale_x: 1, scale_y: 1, duration: 320, mode: A_BACK}); } catch (e) {}
+                }});
+        };
+    } else if (kind === 'contrast') {
+        const c = part('contrast');
+        let on = null;
+        let angle = 0;
+        g.set = (state, animate) => {
+            state = !!state;
+            if (state === on)
+                return;
+            const first = on === null;
+            on = state;
+            c.remove_all_transitions();
+            if (!animate || first || !anims()) {
+                angle = state ? 180 : 0;
+                c.rotation_angle_z = angle;
+                return;
+            }
+            angle += 180;   // always spins the same way, like a knob
+            c.ease({rotation_angle_z: angle, duration: 520, mode: A_BACK});
+        };
+    }
+
+    return g;
+}
+
 export function crea(ext, h) {
     let detailRoot = null;
     let detailCont = null;
@@ -144,6 +419,128 @@ export function crea(ext, h) {
         // beat later, so refresh once more to be sure the tile is never stale.
         delay(450).then(doIt);
     }
+
+    /* ---------- animated icons of the main tiles ----------
+     * extension.js builds the tiles right after crea() returns, so they are
+     * decorated on an idle callback (and again on every re-enable: the module is
+     * re-imported while the tiles are new). The glyphs live here because the
+     * shell caches extension.js — a change there needs a login, this file only a
+     * disable/enable.
+     *
+     * The state is read straight from the tile (the '.checked' pseudo-class that
+     * extension.js flips in _refresh) instead of being guessed from the click, so
+     * the icon always ends up agreeing with its tile. NetworkManager only answers
+     * a moment after the click, hence the settle() re-reads. */
+    const tiles = {};      // tile key -> glyph
+    const tileState = {};  // tile key -> () => bool
+
+    function syncTile(key, animate, forced) {
+        const g = tiles[key], st = tileState[key];
+        if (!g)
+            return;
+        try { g.set(forced === undefined ? (st ? st() : false) : !!forced, animate); } catch (e) {}
+    }
+
+    // Re-read a few times: the wifi state only lands after the round trip.
+    function settle(key, times = [60, 320, 700, 1200]) {
+        for (const ms of times)
+            delay(ms).then(() => syncTile(key, true));
+    }
+
+    function tileGlyph(key, tile, kind, size, cls = 'mac-icon') {
+        const bub = tile && tile._bubble;
+        if (!bub)
+            return null;
+        const g = makeGlyph(kind, size, h, cls);
+        const old = bub.get_child && bub.get_child();
+        try { bub.set_child(g.actor); } catch (e) { return null; }
+        if (old) old.destroy();
+        tiles[key] = g;
+        tileState[key] = () => {
+            try { return bub.has_style_pseudo_class('checked'); } catch (e) { return false; }
+        };
+        g.set(tileState[key](), false);
+        bub.connect('clicked', () => settle(key));
+        return g;
+    }
+
+    let decorated = false;
+    function decorateTiles() {
+        if (decorated)
+            return;
+        decorated = true;
+        try {
+            const wifiG = tileGlyph('wifi', ext._wifi, 'wifi', 23);
+            tileGlyph('sun', ext._night, 'sun', 23);
+            const dndG = tileGlyph('moon', ext._dnd, 'moon', 23);
+
+            // NetworkManager applies the change at once, but extension.js only
+            // repaints the tile after its own deferred refresh: read the real
+            // value so the arcs fill without that wait.
+            if (wifiG && ext._wifi && ext._wifi._bubble) {
+                ext._wifi._bubble.connect('clicked', () => {
+                    for (const ms of [90, 350, 800]) {
+                        delay(ms).then(() => {
+                            try {
+                                propGet(Gio.DBus.system, 'org.freedesktop.NetworkManager',
+                                    '/org/freedesktop/NetworkManager', 'org.freedesktop.NetworkManager',
+                                    'WirelessEnabled')
+                                    .then(v => syncTile('wifi', true, v)).catch(() => {});
+                            } catch (e) {}
+                        });
+                    }
+                });
+            }
+
+            // Dark mode is a round button with no bubble: its state lives on the
+            // button itself (extension.js: _toggleDark -> _refresh -> setOn).
+            const dark = ext._dark;
+            if (dark) {
+                const g = makeGlyph('contrast', 30, h, 'mac-icon');
+                const old = dark.get_child && dark.get_child();
+                dark.set_child(g.actor);
+                if (old) old.destroy();
+                tiles.dark = g;
+                tileState.dark = () => {
+                    try { return dark.has_style_pseudo_class('checked'); } catch (e) { return false; }
+                };
+                g.set(tileState.dark(), false);
+                dark.connect('clicked', () => settle('dark'));
+            }
+
+            // Sound slider: the speaker waves ripple while the volume changes.
+            const snd = ext._sound;
+            const row = snd && snd.get_children && snd.get_children()[1];
+            if (row && snd.slider) {
+                const ic = row.get_children().filter(c => c instanceof St.Icon).pop();
+                if (ic) {
+                    const g = makeGlyph('speaker', 18, h, 'mac-small');
+                    row.replace_child(ic, g.actor);
+                    ic.destroy();
+                    tiles.speaker = g;
+                    snd.slider.connect('notify::value', () => g.pulse());
+                }
+            }
+
+            if (dndG && !('rotation_angle_z' in dndG.actor))
+                warn('glyphs: rotation_angle_z unavailable, the tilt is off');
+        } catch (e) {
+            warn(`tile glyphs failed: ${e && (e.message || e)}`);
+        }
+    }
+
+    // A state may also change from outside (GNOME Settings, another toggle):
+    // snap the icons to it when the panel opens, then settle for wifi.
+    let menuId = 0;
+    try {
+        menuId = ext._qs.menu.connect('open-state-changed', (_m, open) => {
+            if (!open)
+                return;
+            for (const k of ['wifi', 'sun', 'moon', 'dark'])
+                syncTile(k, false);
+            settle('wifi');
+        });
+    } catch (e) {}
 
     /* BlueZ is reached over the SYSTEM bus. Its adapter object is discovered
      * lazily (and cached) so both the Powered switch and the device list agree
@@ -291,8 +688,8 @@ export function crea(ext, h) {
     }
 
     // A non-clickable row: leading chip icon, label, and a switch on the right.
-    function switchRow(iconName, chipClass, label, sw) {
-        return mkRow(iconName, label, sw, chipClass);
+    function switchRow(iconName, chipClass, label, sw, glyph) {
+        return mkRow(iconName, label, sw, chipClass, glyph);
     }
 
     function skeletonWifi() {
@@ -654,26 +1051,48 @@ export function crea(ext, h) {
             else if (kind === 'bluetooth') list = skeletonBluetooth();
             else if (kind === 'sound') skeletonSimple(tr('sound', 'Sound'), () => {
                 detailCont.add_child(section(tr('output', 'Output Devices')));
-                const out = mkSwitch(true, () => {});
-                detailCont.add_child(switchRow('audio-volume-high-symbolic', 'mac-chip-purple', tr('output', 'Output'), out));
+                // The speaker waves ripple when the output is toggled.
+                const spk = makeGlyph('speaker', 16, h, 'mac-panel-icon');
+                spk.set(true, false);
+                spk.pulse();
+                const out = mkSwitch(true, (on) => {
+                    spk.set(on, true);
+                    if (on) {
+                        spk.pulse();
+                        if (tiles.speaker) tiles.speaker.pulse();
+                    }
+                });
+                detailCont.add_child(switchRow('audio-volume-high-symbolic', 'mac-chip-purple', tr('output', 'Output'), out, spk));
                 detailCont.add_child(sep());
                 detailCont.add_child(settingsRow('gnome-control-center sound', 'Sound Settings…', 'mac-chip-purple'));
             });
             else if (kind === 'display') skeletonSimple(tr('display', 'Display'), () => {
-                const night = mkSwitch(!!(ext._colorSettings && ext._colorSettings.get_boolean('night-light-enabled')), (on) => {
+                const nightOn = !!(ext._colorSettings && ext._colorSettings.get_boolean('night-light-enabled'));
+                // The sun sets (and the moon rises) when night light is enabled.
+                const sun = makeGlyph('sun', 16, h, 'mac-panel-icon');
+                sun.set(nightOn, false);
+                const night = mkSwitch(nightOn, (on) => {
                     try { ext._colorSettings && ext._colorSettings.set_boolean('night-light-enabled', on); } catch (e) {}
+                    sun.set(on, true);
+                    syncTile('sun', true, on);
                     syncMainTiles();
                 });
-                detailCont.add_child(switchRow('weather-clear-night-symbolic', 'mac-chip-orange', tr('night', 'Night Shift'), night));
+                detailCont.add_child(switchRow('weather-clear-night-symbolic', 'mac-chip-orange', tr('night', 'Night Shift'), night, sun));
                 detailCont.add_child(sep());
                 detailCont.add_child(settingsRow('gnome-control-center display', 'Display Settings…', 'mac-chip-orange'));
             });
             else if (kind === 'focus') skeletonSimple(tr('dnd', 'Focus'), () => {
-                const sw = mkSwitch(!!(ext._notifSettings && !ext._notifSettings.get_boolean('show-banners')), (on) => {
+                const dndOn = !!(ext._notifSettings && !ext._notifSettings.get_boolean('show-banners'));
+                // The moon tips over when Do Not Disturb is switched on.
+                const moong = makeGlyph('moon', 16, h, 'mac-panel-icon');
+                moong.set(dndOn, false);
+                const sw = mkSwitch(dndOn, (on) => {
                     try { ext._notifSettings && ext._notifSettings.set_boolean('show-banners', !on); } catch (e) {}
+                    moong.set(on, true);
+                    syncTile('moon', true, on);
                     syncMainTiles();
                 });
-                detailCont.add_child(switchRow('notifications-disabled-symbolic', 'mac-chip-purple', tr('dndShort', 'Do Not Disturb'), sw));
+                detailCont.add_child(switchRow('notifications-disabled-symbolic', 'mac-chip-purple', tr('dndShort', 'Do Not Disturb'), sw, moong));
                 detailCont.add_child(sep());
                 detailCont.add_child(settingsRow('gnome-control-center notifications', 'Notifications Settings…', 'mac-chip-purple'));
             });
@@ -779,9 +1198,25 @@ export function crea(ext, h) {
 
     function destroy() {
         gen++;
+        if (menuId) {
+            try { ext._qs.menu.disconnect(menuId); } catch (e) {}
+            menuId = 0;
+        }
+        for (const k of Object.keys(tiles))
+            delete tiles[k];
+        for (const k of Object.keys(tileState))
+            delete tileState[k];
         try { detailRoot && detailRoot.destroy(); } catch (e) {}
         detailRoot = null; detailCont = null; mainKids = null;
     }
+
+    // The tiles are built by extension.js right after crea() returns, so
+    // decorate them once the panel exists (this idle callback runs when
+    // enable() has finished).
+    GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+        decorateTiles();
+        return GLib.SOURCE_REMOVE;
+    });
 
     const api = {open, close, destroy, back};
     // `anchor` is a private closure variable. The shell caches extension.js, so
