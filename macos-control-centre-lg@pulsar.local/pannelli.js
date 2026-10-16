@@ -556,8 +556,11 @@ export function crea(ext, h) {
         return {px, py, sx, sy};
     }
 
-    function swapIn() {
-        if (!detailRoot) return;
+    function swapIn(onDone) {
+        if (!detailRoot) {
+            try { onDone && onDone(); } catch (e) {}
+            return;
+        }
         warn('detail shown');
         // Hide the main tiles but keep `.mac-cc` itself visible: the detail
         // sheet is one of its children now (a sibling of the tiles), so it is
@@ -569,11 +572,21 @@ export function crea(ext, h) {
         detailRoot.set_pivot_point(t.px, t.py);
         detailRoot.scale_x = t.sx;
         detailRoot.scale_y = t.sy;
-        // Fade in while stretching out of the pill. The scale ease gets a small
-        // overshoot (BACK) so it reads as the macOS 27 spring; the overshoot
-        // stays inside the panel's own padding, so nothing gets clipped.
-        detailRoot.ease({opacity: 255, duration: 220, mode: EASE});
-        detailRoot.ease({scale_x: 1, scale_y: 1, duration: 300, mode: Clutter.AnimationMode.EASE_OUT_BACK});
+        // Grow out of the pill. The fade and the stretch share one duration so
+        // the sheet reads as a single motion, and the ease stays monotonic (no
+        // overshoot past 1.0): Liquid Glass rebuilds the pod's blur region every
+        // time its size changes, so an overshoot would make it grow, shrink and
+        // rebuild again — that stutter is what made the reveal feel choppy.
+        // onDone fires only when the reveal is over, so the caller can do its
+        // heavy work (DBus, building rows) without fighting the animation.
+        detailRoot.ease({opacity: 255, duration: 240, mode: EASE});
+        detailRoot.ease({
+            scale_x: 1,
+            scale_y: 1,
+            duration: 240,
+            mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+            onComplete: () => { try { onDone && onDone(); } catch (e) {} },
+        });
     }
 
     function resetMainInstant() {
@@ -629,26 +642,30 @@ export function crea(ext, h) {
             });
             else { resetMainInstant(); return false; }
 
-            swapIn();
-
-            if (kind === 'wifi') populateWifi(list, myGen).catch(e => fail(e, 'wifi'));
-            else if (kind === 'bluetooth') {
-                populateBluetooth(list, myGen).catch(e => fail(e, 'bluetooth'));
-                // Nearby devices only appear once the adapter is scanning, and
-                // they trickle in, so scan now and re-read the list shortly.
-                startBtDiscovery();
-                // Devices trickle in while the adapter scans, so re-read the list
-                // a few times instead of waiting a single long beat — otherwise the
-                // panel sat on "No Bluetooth devices" for several seconds.
-                for (const t of [1500, 3000, 6000, 10000]) {
-                    GLib.timeout_add(GLib.PRIORITY_DEFAULT, t, () => {
-                        if (gen === myGen && currentKind === 'bluetooth' && detailRoot && detailRoot.visible) {
-                            populateBluetooth(list, myGen).catch(() => {});
-                        }
-                        return GLib.SOURCE_REMOVE;
-                    });
+            // The data queries run only when the reveal is over. Building the rows
+            // (and the panel relayout that follows) blocks the main loop for a
+            // hundred-odd milliseconds, and while the reveal was animating that
+            // showed up as the sheet freezing halfway through growing. Bluetooth
+            // starts scanning right away so devices keep trickling in.
+            if (kind === 'bluetooth') startBtDiscovery();
+            swapIn(() => {
+                if (gen !== myGen) return;
+                if (kind === 'wifi') {
+                    populateWifi(list, myGen).catch(e => fail(e, 'wifi'));
+                } else if (kind === 'bluetooth') {
+                    populateBluetooth(list, myGen).catch(e => fail(e, 'bluetooth'));
+                    // Devices trickle in while the adapter scans, so re-read the
+                    // list a few times instead of waiting a single long beat —
+                    // otherwise the panel sat on "No Bluetooth devices".
+                    for (const t of [1500, 3000, 6000, 10000]) {
+                        GLib.timeout_add(GLib.PRIORITY_DEFAULT, t, () => {
+                            if (gen === myGen && currentKind === 'bluetooth' && detailRoot && detailRoot.visible)
+                                populateBluetooth(list, myGen).catch(() => {});
+                            return GLib.SOURCE_REMOVE;
+                        });
+                    }
                 }
-            }
+            });
             return true;
         } catch (e) {
             fail(e, 'open ' + kind);
@@ -671,15 +688,17 @@ export function crea(ext, h) {
         detailRoot.set_pivot_point(t.px, t.py);
 
         // The tiles must stay hidden while the sheet contracts back into the
-        // pill. They sit *behind* the glass, so fading them in underneath made
-        // the whole tile grid show through the shrinking pod — the "you can see
-        // it underneath" the user complained about. Reveal them in one quick
-        // beat, once the sheet is gone.
+        // pill. They sit *behind* the glass, so revealing them early made the
+        // whole tile grid show through the shrinking pod — the "you can see it
+        // underneath" the user complained about. Reveal them once the sheet is
+        // gone, and with no easing of their own: scaling four tiles would make
+        // Liquid Glass rebuild four blur regions right after we tore the sheet's
+        // one down, and that is what made the close stutter.
         detailRoot.ease({
             scale_x: t.sx,
             scale_y: t.sy,
             duration: 200,
-            mode: Clutter.AnimationMode.EASE_IN_CUBIC,
+            mode: Clutter.AnimationMode.EASE_IN_OUT_CUBIC,
             onComplete: () => {
                 try {
                     detailRoot.hide();
@@ -692,12 +711,11 @@ export function crea(ext, h) {
                 if (mainKids) for (const k of mainKids) {
                     try {
                         k.remove_all_transitions();
-                        k.show();
                         k.set_pivot_point(0.5, 0.5);
-                        k.opacity = 0;
-                        k.scale_x = 0.96;
-                        k.scale_y = 0.96;
-                        k.ease({opacity: 255, scale_x: 1, scale_y: 1, duration: 150, mode: EASE});
+                        k.scale_x = 1;
+                        k.scale_y = 1;
+                        k.opacity = 255;
+                        k.show();
                     } catch (e) {}
                 }
             },
