@@ -4,6 +4,8 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
 
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
 const NONE = Gio.DBusCallFlags.NONE;
 const EASE = Clutter.AnimationMode.EASE_OUT_QUAD;
 
@@ -12,6 +14,68 @@ function warn(msg) {
 }
 function fail(e, where) {
     try { console.error(`macos-cc: ${where}: ${e && (e.message || e)}`); } catch (e2) {}
+}
+
+/* ---------- keep the theme logout prompt out of the way ----------
+ * pulsaros-global-menu answers every colour-scheme change with a modal that
+ * logs the session out after six seconds ("Se cerrará la sesión en 6
+ * segundos"). Toggling dark mode from the Control Centre would then both hide
+ * the icon animation behind that modal and, six seconds later, actually log
+ * the user out. The modal is created only from the interactive path of its
+ * theme sync, so that path is made non-interactive (its own non-interactive
+ * calls are untouched) while this extension is enabled. Reloading the shell
+ * restores the original behaviour.
+ *
+ * Nothing else of that extension is disabled: the sync itself still runs, so
+ * the MacTahoe themes keep following the colour scheme — just without the
+ * countdown. */
+const THEME_UUID = 'pulsaros-global-menu@inled.es';
+
+function themeExtension() {
+    try {
+        const info = Main.extensionManager.lookup(THEME_UUID);
+        const ext = info && (info.stateObj || info.extension);
+        if (ext && typeof ext._syncThemes === 'function' && ext._ifaceSettings)
+            return ext;
+    } catch (e) {}
+    return null;
+}
+
+// Any dialog left behind (e.g. a prompt opened before this ran) is cancelled.
+function closeThemePrompt(ext) {
+    const p = ext && ext._activeThemePrompt;
+    if (!p)
+        return;
+    try { p._cleanup(); } catch (e) {}
+    try { p.close(); } catch (e) {}
+    try { ext._activeThemePrompt = null; } catch (e) {}
+}
+
+function muteThemePrompt() {
+    try {
+        const ext = themeExtension();
+        if (!ext)
+            return;
+        closeThemePrompt(ext);
+        if (ext._syncThemes.__ccQuiet)
+            return;
+        const orig = ext._syncThemes;
+        // Their sync reloads the shell theme and can fail (a third party may
+        // be broken while the theme changes); contain that so it never escapes
+        // into the colour-scheme signal.
+        const quiet = (_interactive = false) => {
+            try {
+                orig(false);
+            } catch (e) {
+                fail(e, 'theme sync');
+            }
+        };
+        quiet.__ccQuiet = true;
+        ext._syncThemes = quiet;
+        warn('theme logout prompt suppressed');
+    } catch (e) {
+        fail(e, 'muteThemePrompt');
+    }
 }
 
 function delay(ms) {
@@ -505,7 +569,14 @@ export function crea(ext, h) {
                     try { return dark.has_style_pseudo_class('checked'); } catch (e) { return false; }
                 };
                 g.set(tileState.dark(), false);
-                dark.connect('clicked', () => settle('dark'));
+                dark.connect('clicked', () => {
+                    // extension.js has already switched the scheme by now, so a
+                    // prompt raised before the theme sync was quieted is closed
+                    // here as well; the countdown cannot log anyone out.
+                    muteThemePrompt();
+                    closeThemePrompt(themeExtension());
+                    settle('dark');
+                });
             }
 
             // Sound slider: the speaker waves ripple while the volume changes.
@@ -524,6 +595,10 @@ export function crea(ext, h) {
 
             if (dndG && !('rotation_angle_z' in dndG.actor))
                 warn('glyphs: rotation_angle_z unavailable, the tilt is off');
+
+            // The other extension may have been re-enabled since the last time,
+            // which would have replaced the quieted theme sync.
+            muteThemePrompt();
         } catch (e) {
             warn(`tile glyphs failed: ${e && (e.message || e)}`);
         }
@@ -536,6 +611,7 @@ export function crea(ext, h) {
         menuId = ext._qs.menu.connect('open-state-changed', (_m, open) => {
             if (!open)
                 return;
+            muteThemePrompt();
             for (const k of ['wifi', 'sun', 'moon', 'dark'])
                 syncTile(k, false);
             settle('wifi');
