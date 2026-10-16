@@ -184,13 +184,13 @@ export function crea(ext, h) {
         const host = ext._panel;
         if (!host) return null;
         detailRoot = new St.BoxLayout({
-            vertical: true, style_class: 'mac-cc-detail',
+            orientation: Clutter.Orientation.VERTICAL, style_class: 'mac-cc-detail',
             visible: false, opacity: 0, x_expand: true,
         });
         // Tag as a Liquid Glass pod, same as the tiles (see asGlassToggle).
         try { h.asGlassToggle && h.asGlassToggle(detailRoot); } catch (e) {}
         host.add_child(detailRoot);
-        detailCont = new St.BoxLayout({vertical: true, x_expand: true});
+        detailCont = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, x_expand: true});
         detailRoot.add_child(detailCont);
         mainKids = host.get_children().filter(c => c !== detailRoot);
         warn(`detail pod built as child of _panel (${mainKids.length} main kids)`);
@@ -297,7 +297,7 @@ export function crea(ext, h) {
 
     function skeletonWifi() {
         let quiet = true;
-        const list = new St.BoxLayout({vertical: true, x_expand: true, name: 'wifi-list'});
+        const list = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, x_expand: true, name: 'wifi-list'});
         const refreshList = () => {
             if (currentKind !== 'wifi' || !detailRoot || !detailRoot.visible) return;
             populateWifi(list, gen).catch(() => {});
@@ -329,7 +329,7 @@ export function crea(ext, h) {
         // BlueZ lives on the SYSTEM bus (not the session bus) and its state is
         // a property of the Adapter1 object, so resolve the adapter path first.
         let quiet = true;
-        const list = new St.BoxLayout({vertical: true, x_expand: true, name: 'bt-list'});
+        const list = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, x_expand: true, name: 'bt-list'});
         const refreshList = () => {
             if (currentKind !== 'bluetooth' || !detailRoot || !detailRoot.visible) return;
             populateBluetooth(list, gen).catch(() => {});
@@ -661,32 +661,47 @@ export function crea(ext, h) {
         gen++;
         currentKind = null;
         stopBtDiscovery();
-        if (detailRoot) {
-            const t = anchorTransform();
-            detailRoot.set_pivot_point(t.px, t.py);
-            detailRoot.ease({opacity: 0, scale_x: t.sx, scale_y: t.sy, duration: 200,
-                mode: Clutter.AnimationMode.EASE_IN_QUAD,
-                onComplete: () => {
+        if (!detailRoot) {
+            anchor = null;
+            return;
+        }
+
+        const t = anchorTransform();
+        detailRoot.remove_all_transitions();
+        detailRoot.set_pivot_point(t.px, t.py);
+
+        // The tiles must stay hidden while the sheet contracts back into the
+        // pill. They sit *behind* the glass, so fading them in underneath made
+        // the whole tile grid show through the shrinking pod — the "you can see
+        // it underneath" the user complained about. Reveal them in one quick
+        // beat, once the sheet is gone.
+        detailRoot.ease({
+            scale_x: t.sx,
+            scale_y: t.sy,
+            duration: 200,
+            mode: Clutter.AnimationMode.EASE_IN_CUBIC,
+            onComplete: () => {
+                try {
+                    detailRoot.hide();
+                    detailRoot.remove_all_transitions();
+                    detailRoot.scale_x = 1;
+                    detailRoot.scale_y = 1;
+                    detailRoot.opacity = 255;
+                } catch (e) {}
+                anchor = null;
+                if (mainKids) for (const k of mainKids) {
                     try {
-                        if (detailRoot) {
-                            detailRoot.visible = false;
-                            detailRoot.scale_x = 1; detailRoot.scale_y = 1;
-                        }
-                        anchor = null;
+                        k.remove_all_transitions();
+                        k.show();
+                        k.set_pivot_point(0.5, 0.5);
+                        k.opacity = 0;
+                        k.scale_x = 0.96;
+                        k.scale_y = 0.96;
+                        k.ease({opacity: 255, scale_x: 1, scale_y: 1, duration: 150, mode: EASE});
                     } catch (e) {}
-                }});
-        } else {
-            try { anchor = null; } catch (e) {}
-        }
-        // Bring the tiles back with a matching unfold.
-        if (mainKids) for (const k of mainKids) {
-            try {
-                k.show();
-                k.set_pivot_point(0.5, 0);
-                k.opacity = 0; k.scale_x = 0.97; k.scale_y = 0.86;
-                k.ease({opacity: 255, scale_x: 1, scale_y: 1, duration: 180, mode: EASE});
-            } catch (e) {}
-        }
+                }
+            },
+        });
     }
 
     function close() {

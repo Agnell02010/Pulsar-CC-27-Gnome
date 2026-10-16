@@ -497,7 +497,7 @@ function wideTile(iconName, title, subtitle, extraClass, onToggle, onMenu) {
         reactive: true,
         style_class: 'mac-tile-text-btn'
     });
-    const texts = new St.BoxLayout({vertical: true, y_align: Clutter.ActorAlign.CENTER, x_expand: true});
+    const texts = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, y_align: Clutter.ActorAlign.CENTER, x_expand: true});
     const t = new St.Label({text: title, style_class: 'mac-title', reactive: false, can_focus: false});
     const s = new St.Label({text: subtitle, style_class: 'mac-sub', reactive: false, can_focus: false});
     for (const l of [t, s])
@@ -567,7 +567,7 @@ function launch(cmd) {
 }
 
 function sliderTile(title, lowIcon, highIcon, onTrail) {
-    const box = new St.BoxLayout({vertical: true, style_class: 'mac-slider-tile'});
+    const box = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, style_class: 'mac-slider-tile'});
     pivot(box);
     box.add_child(new St.Label({text: title, style_class: 'mac-title'}));
     const row = new St.BoxLayout({y_align: Clutter.ActorAlign.CENTER, style_class: 'mac-slider-row'});
@@ -814,13 +814,13 @@ export default class MacControlCentre extends Extension {
     }
 
     _buildPanel() {
-        const panel = new St.BoxLayout({vertical: true, style_class: 'mac-cc'});
+        const panel = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, style_class: 'mac-cc'});
         this._panel = panel;
 
         /* Left / right columns */
         const top = new St.BoxLayout({style_class: 'mac-row'});
-        const left = new St.BoxLayout({vertical: true, style_class: 'mac-col'});
-        const right = new St.BoxLayout({vertical: true, style_class: 'mac-col'});
+        const left = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, style_class: 'mac-col'});
+        const right = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, style_class: 'mac-col'});
 
         this._wifi = wideTile('mc:wifi', 'Wi-Fi', '', '', 
             () => this._toggleWifi(), 
@@ -932,7 +932,7 @@ export default class MacControlCentre extends Extension {
 
     _buildMedia() {
         const tile = asGlassMedia(new St.BoxLayout({
-            vertical: true,
+            orientation: Clutter.Orientation.VERTICAL,
             style_class: 'mac-media',
             x_expand: true,
         }));
