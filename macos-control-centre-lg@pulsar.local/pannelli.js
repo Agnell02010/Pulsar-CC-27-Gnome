@@ -300,7 +300,7 @@ export function crea(ext, h) {
         const list = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, x_expand: true, name: 'wifi-list'});
         const refreshList = () => {
             if (currentKind !== 'wifi' || !detailRoot || !detailRoot.visible) return;
-            populateWifi(list, gen).catch(() => {});
+            populateWifi(list, gen, false).catch(() => {});
         };
         const sw = mkSwitch(true, (on) => {
             if (quiet) return;
@@ -332,7 +332,7 @@ export function crea(ext, h) {
         const list = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, x_expand: true, name: 'bt-list'});
         const refreshList = () => {
             if (currentKind !== 'bluetooth' || !detailRoot || !detailRoot.visible) return;
-            populateBluetooth(list, gen).catch(() => {});
+            populateBluetooth(list, gen, false).catch(() => {});
         };
         const sw = mkSwitch(true, (on) => {
             if (quiet) return;
@@ -378,7 +378,7 @@ export function crea(ext, h) {
         if (extra) extra();
     }
 
-    async function populateWifi(list, myGen) {
+    async function populateWifi(list, myGen, animate) {
         const NM = 'org.freedesktop.NetworkManager';
         try {
             const devs = await dbusCall(Gio.DBus.system, NM, '/org/freedesktop/NetworkManager', NM, 'GetDevices');
@@ -411,6 +411,7 @@ export function crea(ext, h) {
             // Clear right before repopulating (synchronously) so a refresh never
             // leaves the list momentarily empty/flickering.
             clearChildren(list);
+            let ri = 0;   // position in the list, for the arrival stagger
             for (const r of rows) {
                 const isActive = r.path === active;
                 const sigIcon = r.strength > 70 ? 'network-wireless-signal-good-symbolic'
@@ -425,7 +426,7 @@ export function crea(ext, h) {
                         .catch(e => warn(`Wi-Fi activation failed: ${e && (e.message || e)}`));
                     back();
                 });
-                list.add_child(b);
+                addRowStaggered(list, b, ri++, myGen, animate);
             }
         } catch (e) {
             if (gen !== myGen) return;
@@ -435,7 +436,7 @@ export function crea(ext, h) {
         }
     }
 
-    async function populateBluetooth(list, myGen) {
+    async function populateBluetooth(list, myGen, animate) {
         try {
             const res = await dbusCall(Gio.DBus.system, 'org.bluez', '/', 'org.freedesktop.DBus.ObjectManager', 'GetManagedObjects');
             const objs = res?.deepUnpack()[0] || {};
@@ -461,6 +462,7 @@ export function crea(ext, h) {
             // Clear right before repopulating (synchronously) to avoid a flash of
             // an empty list while a refresh is in flight.
             clearChildren(list);
+            let ri = 0;   // position in the list, for the arrival stagger
             for (const dev of devices) {
                 const right = new St.Label({
                     text: dev.connected ? tr('connected', 'Connected') : (dev.paired ? tr('paired', 'Paired') : ''),
@@ -475,13 +477,13 @@ export function crea(ext, h) {
                             syncMainTiles();
                             // Reflect the new "Connected/Paired" state in the list.
                             GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
-                                if (gen === myGen) populateBluetooth(list, myGen).catch(() => {});
+                                if (gen === myGen) populateBluetooth(list, myGen, false).catch(() => {});
                                 return GLib.SOURCE_REMOVE;
                             });
                         })
                         .catch(e => warn(`Bluetooth ${dev.connected ? 'disconnect' : 'connect'} failed: ${e && (e.message || e)}`));
                 });
-                list.add_child(b);
+                addRowStaggered(list, b, ri++, myGen, animate);
             }
         } catch (e) {
             if (gen !== myGen) return;
@@ -499,6 +501,34 @@ export function crea(ext, h) {
             box.remove_child(c);
             try { c.destroy(); } catch (e) {}
         }
+    }
+
+    // Wi-Fi can list a dozen networks and Bluetooth a house full of devices. The
+    // list used to be built entire at the end of the reveal, which made the sheet
+    // jump ~250px in a single frame and every row appear at once — "it snaps open
+    // and the whole list is just there". Rows now arrive one after another and
+    // fade in, so the sheet grows with them and the list reads as filling in.
+    // Refresh passes animate=false: re-staggering the list every few seconds while
+    // the adapter rescans would only make it blink.
+    const ROW_STEP = 35;      // ms between one row and the next
+    const ROW_MAX_WAIT = 420; // cap, so a very long list does not crawl for seconds
+    function addRowStaggered(list, row, i, myGen, animate) {
+        const put = () => {
+            if (gen !== myGen) return;
+            try {
+                if (animate) {
+                    row.opacity = 0;
+                    row.translation_y = 6;
+                }
+                list.add_child(row);
+                if (animate)
+                    row.ease({opacity: 255, translation_y: 0, duration: 200, mode: EASE});
+            } catch (e) { warn(`row add failed: ${e && (e.message || e)}`); }
+        };
+        if (!animate) { put(); return; }
+        const d = Math.min(i * ROW_STEP, ROW_MAX_WAIT);
+        if (d <= 0) { put(); return; }
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, d, () => { put(); return GLib.SOURCE_REMOVE; });
     }
 
     // Wi-Fi can find a dozen networks and Bluetooth a house full of devices: put
@@ -572,24 +602,25 @@ export function crea(ext, h) {
         detailRoot.set_pivot_point(t.px, t.py);
         detailRoot.scale_x = t.sx;
         detailRoot.scale_y = t.sy;
-        // Grow out of the pill. The fade and the stretch share one duration so
-        // the sheet reads as a single motion, and the ease stays monotonic (no
-        // overshoot past 1.0): Liquid Glass rebuilds the pod's blur region every
-        // time its size changes, so an overshoot would make it grow, shrink and
-        // rebuild again — that stutter is what made the reveal feel choppy.
+        // Grow out of the pill. The ease stays monotonic (no overshoot past 1.0):
+        // Liquid Glass rebuilds the pod's blur region every time its size changes,
+        // so an overshoot would make it grow, shrink and rebuild again — and that
+        // stutter is what made the reveal feel choppy.
         //
-        // The content stays hidden for the first stretch: a pod's own opacity
-        // does not touch its Liquid Glass (only its content), so what you see is
-        // the bare glass stretching out of the pill, and the text fades in only
-        // once the sheet is nearly full — the pill widening and changing its
-        // text, rather than a new panel popping open.
-        // onDone fires only when the reveal is over, so the caller can do its
-        // heavy work (DBus, building rows) without fighting the animation.
-        detailRoot.ease({opacity: 255, delay: 110, duration: 130, mode: EASE});
+        // A pod's own opacity does not touch its Liquid Glass (only its content),
+        // so the fade here is the *text* arriving. It starts almost immediately
+        // and runs for most of the (now slower) stretch, so the text comes in
+        // together with the glass instead of popping in once the sheet is already
+        // open: the opening reads as one long, calm motion.
+        //
+        // onDone is still called when the reveal ends, for anything that must wait
+        // for it; the row lists no longer use it — they start earlier and trickle
+        // in (see addRowStaggered) so the sheet fills while it is still growing.
+        detailRoot.ease({opacity: 255, delay: 60, duration: 280, mode: EASE});
         detailRoot.ease({
             scale_x: 1,
             scale_y: 1,
-            duration: 240,
+            duration: 340,
             mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
             onComplete: () => { try { onDone && onDone(); } catch (e) {} },
         });
@@ -648,29 +679,31 @@ export function crea(ext, h) {
             });
             else { resetMainInstant(); return false; }
 
-            // The data queries run only when the reveal is over. Building the rows
-            // (and the panel relayout that follows) blocks the main loop for a
-            // hundred-odd milliseconds, and while the reveal was animating that
-            // showed up as the sheet freezing halfway through growing. Bluetooth
-            // starts scanning right away so devices keep trickling in.
+            // Kick the data off a beat *after* the stretch starts, instead of when
+            // it ends. The old reason to wait — the list was built in one blocking
+            // batch that froze the reveal — is gone now that rows trickle in one at
+            // a time (addRowStaggered), so the sheet can grow and fill in the same
+            // motion. Bluetooth starts scanning right away so devices keep coming.
             if (kind === 'bluetooth') startBtDiscovery();
-            swapIn(() => {
-                if (gen !== myGen) return;
+            swapIn(null);
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 140, () => {
+                if (gen !== myGen) return GLib.SOURCE_REMOVE;
                 if (kind === 'wifi') {
-                    populateWifi(list, myGen).catch(e => fail(e, 'wifi'));
+                    populateWifi(list, myGen, true).catch(e => fail(e, 'wifi'));
                 } else if (kind === 'bluetooth') {
-                    populateBluetooth(list, myGen).catch(e => fail(e, 'bluetooth'));
+                    populateBluetooth(list, myGen, true).catch(e => fail(e, 'bluetooth'));
                     // Devices trickle in while the adapter scans, so re-read the
                     // list a few times instead of waiting a single long beat —
                     // otherwise the panel sat on "No Bluetooth devices".
                     for (const t of [1500, 3000, 6000, 10000]) {
                         GLib.timeout_add(GLib.PRIORITY_DEFAULT, t, () => {
                             if (gen === myGen && currentKind === 'bluetooth' && detailRoot && detailRoot.visible)
-                                populateBluetooth(list, myGen).catch(() => {});
+                                populateBluetooth(list, myGen, false).catch(() => {});
                             return GLib.SOURCE_REMOVE;
                         });
                     }
                 }
+                return GLib.SOURCE_REMOVE;
             });
             return true;
         } catch (e) {
