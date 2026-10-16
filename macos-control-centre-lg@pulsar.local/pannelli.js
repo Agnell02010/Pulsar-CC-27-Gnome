@@ -577,9 +577,15 @@ export function crea(ext, h) {
         // overshoot past 1.0): Liquid Glass rebuilds the pod's blur region every
         // time its size changes, so an overshoot would make it grow, shrink and
         // rebuild again — that stutter is what made the reveal feel choppy.
+        //
+        // The content stays hidden for the first stretch: a pod's own opacity
+        // does not touch its Liquid Glass (only its content), so what you see is
+        // the bare glass stretching out of the pill, and the text fades in only
+        // once the sheet is nearly full — the pill widening and changing its
+        // text, rather than a new panel popping open.
         // onDone fires only when the reveal is over, so the caller can do its
         // heavy work (DBus, building rows) without fighting the animation.
-        detailRoot.ease({opacity: 255, duration: 240, mode: EASE});
+        detailRoot.ease({opacity: 255, delay: 110, duration: 130, mode: EASE});
         detailRoot.ease({
             scale_x: 1,
             scale_y: 1,
@@ -690,10 +696,14 @@ export function crea(ext, h) {
         // The tiles must stay hidden while the sheet contracts back into the
         // pill. They sit *behind* the glass, so revealing them early made the
         // whole tile grid show through the shrinking pod — the "you can see it
-        // underneath" the user complained about. Reveal them once the sheet is
-        // gone, and with no easing of their own: scaling four tiles would make
-        // Liquid Glass rebuild four blur regions right after we tore the sheet's
-        // one down, and that is what made the close stutter.
+        // underneath" the user complained about.
+        //
+        // Mirror of the reveal: the sheet's content goes first (opacity does not
+        // touch the glass), so what contracts is the bare glass, and only then do
+        // the tiles come back, growing out of their own centre — the panel
+        // shrinking into the pill rather than a panel vanishing and a grid
+        // blinking back.
+        detailRoot.ease({opacity: 0, duration: 90, mode: EASE});
         detailRoot.ease({
             scale_x: t.sx,
             scale_y: t.sy,
@@ -711,11 +721,12 @@ export function crea(ext, h) {
                 if (mainKids) for (const k of mainKids) {
                     try {
                         k.remove_all_transitions();
-                        k.set_pivot_point(0.5, 0.5);
-                        k.scale_x = 1;
-                        k.scale_y = 1;
-                        k.opacity = 255;
                         k.show();
+                        k.set_pivot_point(0.5, 0.5);
+                        k.opacity = 0;
+                        k.scale_x = 0.96;
+                        k.scale_y = 0.96;
+                        k.ease({opacity: 255, scale_x: 1, scale_y: 1, duration: 150, mode: EASE});
                     } catch (e) {}
                 }
             },
