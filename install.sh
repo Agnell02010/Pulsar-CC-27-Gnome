@@ -38,7 +38,7 @@ SHELL_VER="$(gnome-shell --version 2>/dev/null | grep -oE '[0-9]+' | head -1 || 
 if [ -n "${SHELL_VER:-}" ]; then
   info "GNOME Shell detected: version $SHELL_VER"
   if [ "$SHELL_VER" -lt 45 ] 2>/dev/null; then
-    warn "This extension targets GNOME Shell 50: on $SHELL_VER it may not work."
+    warn "This extension targets GNOME Shell 50 or 51: on $SHELL_VER it may not work."
   fi
 else
   warn "Could not determine the GNOME Shell version."
