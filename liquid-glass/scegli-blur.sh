@@ -10,6 +10,12 @@
 #   ./scegli-blur.sh --fix    se l'effetto n/rifrazione e' sparito, ricarica
 #                             l'estensione e ripristina il livello attuale
 #
+# Il cambio di livello scrive SOLO i 7 raggi di blur: ottici, profilo dock e
+# tutto il resto restano intatti, quindi cambiare livello non butta via la
+# taratura di bordi e angoli. Per il ripristino completo (PC nuovo, recuperare
+# un look perso) usa invece:
+#   ./applica-profilo.sh N --pieno
+#
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

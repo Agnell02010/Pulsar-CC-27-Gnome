@@ -164,11 +164,24 @@ any machine:
 If you move the clone, re-run `./install.sh`: the launchers are rewritten to
 the new location.
 
-> Every level is a full dump of the live settings, so it also carries the dock
-> glass profile. Switching levels **does not revert the dock tuning**, and
-> `applica-profilo.sh` refuses to load a profile that is missing those keys.
-> Regenerate the levels from the live state with
-> `python3 liquid-glass/gen_profiles.py`.
+> Switching level writes **only the seven blur radii**. The optics, the dock
+> glass profile and every other key are left exactly as they are, so changing
+> level never throws away an edge or corner tuning. `applica-profilo.sh`
+> refuses a profile that is missing the dock glass keys. Regenerate the levels
+> from the live state with `python3 liquid-glass/gen_profiles.py`.
+
+### Full restore
+
+The level files are complete snapshots. To load one wholesale — optics
+included — pass `--pieno`:
+
+```bash
+./liquid-glass/applica-profilo.sh 1 --pieno
+```
+
+That is what a fresh machine needs, and what `install.sh` does when Liquid
+Glass has no settings yet. Re-running `install.sh` on an already tuned machine
+detects the existing settings and applies only the level, keeping the tuning.
 
 ### Key Settings
 

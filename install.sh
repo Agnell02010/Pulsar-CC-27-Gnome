@@ -96,8 +96,21 @@ if gnome-extensions list 2>/dev/null | grep -q '^liquid-glass@'; then
           ;;
       esac
       if [ -f "$PROFILE" ]; then
-        dconf load "$LG_PATH" < "$PROFILE"
-        ok "Blur level applied: $NOME"
+        # A fresh machine has nothing to preserve, so the whole profile is
+        # loaded and the look is established in one go. Re-running this
+        # installer on an already tuned machine must not throw that tuning
+        # away, so it then writes only the blur radii.
+        if dconf dump "$LG_PATH" | grep -q '^glass-profile-shape-n='; then
+          if "$SRC_DIR/liquid-glass/applica-profilo.sh" "$LIVELLO"; then
+            ok "Blur level applied, optics kept: $NOME"
+          else
+            warn "Could not apply the level. Do it later with:"
+            warn "  ./liquid-glass/applica-profilo.sh $LIVELLO"
+          fi
+        else
+          dconf load "$LG_PATH" < "$PROFILE"
+          ok "Profile applied: $NOME"
+        fi
       else
         warn "Profile file not found: $PROFILE"
       fi

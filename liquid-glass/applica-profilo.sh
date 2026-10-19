@@ -12,11 +12,15 @@
 #   ./applica-profilo.sh salva       save the current settings to a file
 #   ./applica-profilo.sh save        same as "salva"
 #
+#   ./applica-profilo.sh N --pieno   load the whole profile, optics included
+#
 # The old names still work: "no-blur" = 0, "blur" = 3.
 #
-# Every level file is a full dump of the live settings, so it also carries the
-# dock glass profile (dock-glass-shape-n / max-z / displacement and the shared
-# profile). Applying a level therefore does NOT revert the dock tuning.
+# By default only the seven blur radii are written. The level files are full
+# dumps, but a level change must never touch the optics: loading a whole
+# profile reverted every edge, corner and dock tuning, so switching level
+# silently threw the tuning away. --pieno restores everything, which is what a
+# fresh machine wants and what install.sh uses when there is nothing yet.
 #
 set -euo pipefail
 
@@ -26,7 +30,17 @@ BACKUP_DIR="$HOME/.config/pulsar-cc/lg-backup"
 
 if [ -t 1 ]; then B=$'\e[1m'; G=$'\e[32m'; Y=$'\e[33m'; R=$'\e[31m'; N=$'\e[0m'; else B=""; G=""; Y=""; R=""; N=""; fi
 
-MODO="${1:-1}"
+PIENO=0
+MODO=""
+for a in "$@"; do
+  case "$a" in
+    --pieno|--full|--restore) PIENO=1 ;;
+    *)
+      if [ -z "$MODO" ]; then MODO="$a"; fi
+      ;;
+  esac
+done
+MODO="${MODO:-1}"
 
 case "$MODO" in
   0|no-blur|nob|no)
@@ -83,12 +97,42 @@ fi
 mkdir -p "$BACKUP_DIR"
 dconf dump "$LG_PATH" > "$BACKUP_DIR/liquid_glass_$(date +%Y%m%d-%H%M%S).txt" || true
 
-# apply
-dconf load "$LG_PATH" < "$FILE"
+if [ "$PIENO" = 1 ]; then
+  # Full restore: what a fresh machine wants, and what install.sh uses when
+  # Liquid Glass has no settings yet.
+  dconf load "$LG_PATH" < "$FILE"
+  echo "${G}  ok${N}  Whole profile applied: ${B}$NOME${N}"
+  echo
+  echo "  Optics included, so any edge/corner/dock tuning is replaced."
+else
+  # The seven surfaces the levels actually differ on. Writing just these leaves
+  # the optics, the dock glass profile and every other key exactly as they are.
+  BLUR_KEYS="menu-blur-radius panel-menu-blur-radius quick-settings-blur-radius
+             osd-blur-radius application-blur-radius notification-blur-radius
+             dock-blur-radius"
+  SCRITTI=0
+  MANCATI=""
+  for key in $BLUR_KEYS; do
+    VALORE="$(grep -E "^${key}=" "$FILE" | head -n1 | cut -d= -f2- || true)"
+    if [ -n "$VALORE" ]; then
+      dconf write "$LG_PATH${key}" "$VALORE"
+      SCRITTI=$((SCRITTI + 1))
+    else
+      MANCATI="$MANCATI $key"
+    fi
+  done
 
-echo "${G}  ok${N}  Blur level applied: ${B}$NOME${N}"
-echo
-echo "  Dock glass keys kept: $(grep -c '^dock-glass-' "$FILE")"
+  if [ -n "$MANCATI" ]; then
+    echo "${Y}  !!${N}  Missing from the profile:$MANCATI"
+    echo "       Regenerate the profiles with:  python3 gen_profiles.py"
+  fi
+
+  echo "${G}  ok${N}  Blur level applied: ${B}$NOME${N}  ($SCRITTI radii)"
+  echo
+  echo "  Only the blur radii changed: optics, dock glass profile and every"
+  echo "  other key were left untouched."
+fi
+
 echo
 echo "  If the Control Center is already open, close and reopen it"
 echo "  (the glass effect is recalculated when the panel opens)."
