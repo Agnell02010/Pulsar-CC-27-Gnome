@@ -76,13 +76,28 @@ if gnome-extensions list 2>/dev/null | grep -q '^liquid-glass@'; then
   case "$RISPOSTA" in
     n|N)
       info "Profile not applied. You can do it later with:"
-      info "  ./liquid-glass/applica-profilo.sh no-blur"
+      info "  ./liquid-glass/applica-profilo.sh 1"
       ;;
     *)
-      PROFILE="$SRC_DIR/liquid-glass/liquid_glass_settings(NO_BLUR).txt"
+      echo
+      info "Liquid Glass blur levels:"
+      info "  0 = no blur   1 = light (clean)   2 = medium   3 = strong"
+      read -r -p "  Blur level? [0-3, default 1] " LIVELLO || LIVELLO="1"
+      LIVELLO="${LIVELLO:-1}"
+      case "$LIVELLO" in
+        0) PROFILE="$SRC_DIR/liquid-glass/liquid_glass_settings(NO_BLUR).txt";          NOME="0 — no blur" ;;
+        1) PROFILE="$SRC_DIR/liquid-glass/liquid_glass_settings(BLUR-1-LEGGERO).txt";   NOME="1 — light blur" ;;
+        2) PROFILE="$SRC_DIR/liquid-glass/liquid_glass_settings(BLUR-2-MEDIO).txt";     NOME="2 — medium blur" ;;
+        3) PROFILE="$SRC_DIR/liquid-glass/liquid_glass_settings(BLUR-3-FORTE).txt";     NOME="3 — strong blur" ;;
+        *)
+          warn "Unknown level '$LIVELLO', using 1 (light)."
+          PROFILE="$SRC_DIR/liquid-glass/liquid_glass_settings(BLUR-1-LEGGERO).txt"
+          NOME="1 — light blur"
+          ;;
+      esac
       if [ -f "$PROFILE" ]; then
         dconf load "$LG_PATH" < "$PROFILE"
-        ok "NO_BLUR profile applied (glass without blur)"
+        ok "Blur level applied: $NOME"
       else
         warn "Profile file not found: $PROFILE"
       fi
@@ -93,6 +108,57 @@ else
   warn "Without it the Control Center still works, just without the glass look."
   warn "Install Liquid Glass and then apply a profile with:"
   warn "  ./liquid-glass/applica-profilo.sh no-blur"
+fi
+
+# --------------------------------------------------- desktop launchers
+# Written here, from $SRC_DIR, so a clone on any machine records that machine's
+# own paths instead of someone else's home directory. They live in the repo
+# (liquid-glass/*.sh), so there is a single source of truth and re-running this
+# installer keeps them in sync.
+echo
+info "Creating the Liquid Glass launchers in ~/.local/share/applications"
+APPS_DIR="$HOME/.local/share/applications"
+LG_APPLICA="$SRC_DIR/liquid-glass/applica-profilo.sh"
+LG_SCEGLI="$SRC_DIR/liquid-glass/scegli-blur.sh"
+
+mkdir -p "$APPS_DIR"
+
+# Args: file, Name, Comment, Icon, Exec (quoted by the caller when needed).
+launcher() {
+  printf '%s\n' \
+    "[Desktop Entry]" \
+    "Type=Application" \
+    "Name=$2" \
+    "Comment=$3" \
+    "Exec=$5" \
+    "Icon=$4" \
+    "Terminal=true" \
+    "Categories=Settings;" > "$APPS_DIR/$1"
+  ok "$2"
+}
+
+if [ -x "$LG_APPLICA" ] && [ -x "$LG_SCEGLI" ]; then
+  launcher "Liquid Glass - livello blur.desktop" \
+    "Liquid Glass: livello blur" \
+    "Choose the Liquid Glass blur level (0-3)" \
+    "preferences-system" "\"$LG_SCEGLI\""
+  launcher "Liquid Glass - BLUR.desktop" \
+    "Liquid Glass: profilo BLUR" \
+    "Apply the profile with blur" \
+    "preferences-system" "\"$LG_APPLICA\" 3"
+  launcher "Liquid Glass - NO BLUR.desktop" \
+    "Liquid Glass: profilo NO BLUR" \
+    "Apply the profile without blur" \
+    "preferences-system" "\"$LG_APPLICA\" 0"
+  launcher "Liquid Glass - Salva.desktop" \
+    "Liquid Glass: salva profilo" \
+    "Save the current settings" \
+    "document-save" "\"$LG_APPLICA\" salva"
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "$APPS_DIR" 2>/dev/null || true
+  fi
+else
+  warn "liquid-glass/*.sh not found: launchers not created."
 fi
 
 # --------------------------------------------------------------- finish

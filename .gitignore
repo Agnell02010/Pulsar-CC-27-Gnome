@@ -12,3 +12,7 @@ lg-backup/
 # The release tarball is not versioned (it is regenerated)
 *.tar.gz
 *.zip
+
+# Python bytecode from gen_profiles.py
+__pycache__/
+*.pyc

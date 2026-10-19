@@ -30,9 +30,21 @@ Created by **[Agnell02010](https://github.com/Agnell02010)**.
 ## 📋 Requirements
 
 1. **GNOME Shell 50 or 51** (supports both Wayland and X11).
-2. **[Liquid Glass extension](https://extensions.gnome.org/extension/7344/liquid-glass/)** installed and enabled (`liquid-glass@thinkingcoding1231.gmail.com`).
+2. **The Pulsar Liquid Glass extension** installed and enabled
+   (`liquid-glass@thinkingcoding1231.gmail.com`):
 
-   *Without this extension, the Control Center still works, but the glass effect will not be available.*
+   ```bash
+   git clone https://github.com/Agnell02010/Pulsar-Liquid-Glass.git
+   cd Pulsar-Liquid-Glass && ./install.sh && cd ..
+   ```
+
+   This is a fork of [Liquid Glass](https://extensions.gnome.org/extension/7344/liquid-glass/)
+   by Ryosuke Watanabe (MIT). Install the fork rather than the upstream
+   release: Pulsar adds the edge lens that produces the macOS refraction, and
+   the blur profiles in this repository are tuned against it.
+
+   *Without any Liquid Glass the Control Center still works, just without the
+   glass look.*
 
 3. *(Recommended)* The **MacTahoe-Dark** GNOME Shell theme for a closer macOS-like appearance.
 
@@ -57,8 +69,9 @@ The installer:
 
 1. Copies the extension into `~/.local/share/gnome-shell/extensions/`.
 2. Enables the extension.
-3. Asks whether to apply the included **Liquid Glass** profile (recommended: `NO_BLUR`).
-4. Explains how to complete the installation by logging out and back in.
+3. Asks which **Liquid Glass** blur level to apply (recommended: `1`, light).
+4. Writes four launchers to `~/.local/share/applications`, for switching level later.
+5. Explains how to complete the installation by logging out and back in.
 
 ### Manual Installation
 
@@ -70,12 +83,15 @@ mkdir -p ~/.local/share/gnome-shell/extensions
 cp -r macos-control-centre-lg@pulsar.local ~/.local/share/gnome-shell/extensions/
 gnome-extensions enable macos-control-centre-lg@pulsar.local
 
-# 2. Apply the recommended Liquid Glass profile (no blur)
+# 2. Apply the recommended Liquid Glass profile (light blur)
 dconf load /org/gnome/shell/extensions/liquid-glass/ \
-    < "liquid-glass/liquid_glass_settings(NO_BLUR).txt"
+    < "liquid-glass/liquid_glass_settings(BLUR-1-LEGGERO).txt"
 
 # 3. Log out and back in (required on Wayland)
 ```
+
+> Skip `install.sh` and you also skip the desktop launchers; use
+> `./liquid-glass/scegli-blur.sh` from the terminal instead.
 
 > ⚠️ **Wayland:** New extensions require a logout/login to be loaded. On X11, you can usually restart GNOME Shell using `Alt+F2`, then `r`.
 
@@ -85,28 +101,74 @@ Press **`Super+S`** to open the Control Center, or click the system icon in the 
 
 ---
 
-## 🎛️ Liquid Glass Profiles
+## 🎛️ Liquid Glass Blur Levels
 
-The `liquid-glass/` directory contains two ready-to-use profiles:
+The `liquid-glass/` directory contains four blur levels, macOS-style:
 
-| Profile | Effect | Recommended Use |
+| Level | File | Effect |
 |---|---|---|
-| `liquid_glass_settings(NO_BLUR).txt` | Glass without blur | **Recommended** — lighter and less resource-intensive |
-| `liquid_glass_settings(BLUR).txt` | Glass with blur | A softer, more translucent appearance |
+| **0** | `liquid_glass_settings(NO_BLUR).txt` | No blur, crisp glass — lightest |
+| **1** | `liquid_glass_settings(BLUR-1-LEGGERO).txt` | **Light blur — the clean middle ground** |
+| **2** | `liquid_glass_settings(BLUR-2-MEDIO).txt` | Medium blur |
+| **3** | `liquid_glass_settings(BLUR-3-FORTE).txt` | Strong blur |
 
-Apply a profile using `dconf`:
+`liquid_glass_settings(BLUR).txt` is an alias of **level 3**, so older
+instructions keep working.
+
+### Switching level
+
+`scegli-blur.sh` is the single entry point:
+
+```bash
+./liquid-glass/scegli-blur.sh          # interactive picker (0-3)
+./liquid-glass/scegli-blur.sh 1        # light blur (recommended)
+./liquid-glass/scegli-blur.sh 0        # no blur
+./liquid-glass/scegli-blur.sh 2        # medium
+./liquid-glass/scegli-blur.sh 3        # strong
+./liquid-glass/scegli-blur.sh --fix    # reload the extension, keep the level
+```
+
+`--fix` is the remedy when the glass looks wrong. It disables and re-enables
+Liquid Glass, which resets the blur pipeline, and leaves the current level
+untouched.
+
+`applica-profilo.sh` does the same work without the picker, and can also save
+the live settings:
+
+```bash
+./liquid-glass/applica-profilo.sh 1      # light blur (recommended)
+./liquid-glass/applica-profilo.sh salva  # save the live settings to a file
+```
+
+Applying a level directly with `dconf` still works:
 
 ```bash
 dconf load /org/gnome/shell/extensions/liquid-glass/ \
-    < "liquid-glass/liquid_glass_settings(NO_BLUR).txt"
+    < "liquid-glass/liquid_glass_settings(BLUR-1-LEGGERO).txt"
 ```
 
-Alternatively, use the included scripts:
+### Desktop launchers
 
-```bash
-./liquid-glass/applica-profilo.sh no-blur
-./liquid-glass/applica-profilo.sh blur
-```
+`install.sh` writes four launchers to `~/.local/share/applications`, so the
+levels are also reachable from the app grid. Their `Exec` paths are computed
+from wherever the repository was cloned — never hard-coded — so they work on
+any machine:
+
+| Launcher | Runs |
+|---|---|
+| **Liquid Glass: livello blur** | `scegli-blur.sh` (interactive) |
+| **Liquid Glass: profilo BLUR** | `applica-profilo.sh 3` |
+| **Liquid Glass: profilo NO BLUR** | `applica-profilo.sh 0` |
+| **Liquid Glass: salva profilo** | `applica-profilo.sh salva` |
+
+If you move the clone, re-run `./install.sh`: the launchers are rewritten to
+the new location.
+
+> Every level is a full dump of the live settings, so it also carries the dock
+> glass profile. Switching levels **does not revert the dock tuning**, and
+> `applica-profilo.sh` refuses to load a profile that is missing those keys.
+> Regenerate the levels from the live state with
+> `python3 liquid-glass/gen_profiles.py`.
 
 ### Key Settings
 
@@ -218,11 +280,16 @@ Log out and back in to complete the process.
 │   ├── metadata.json
 │   ├── icons/                              # SF Symbols-inspired SVG icons
 │   └── *.png                               # Background bubbles / circles
-├── liquid-glass/                           # Liquid Glass configuration profiles
-│   ├── liquid_glass_settings(NO_BLUR).txt
-│   ├── liquid_glass_settings(BLUR).txt
-│   └── applica-profilo.sh
-├── install.sh
+├── liquid-glass/                           # Liquid Glass blur levels
+│   ├── liquid_glass_settings(NO_BLUR).txt          # level 0
+│   ├── liquid_glass_settings(BLUR-1-LEGGERO).txt   # level 1 (light)
+│   ├── liquid_glass_settings(BLUR-2-MEDIO).txt     # level 2 (medium)
+│   ├── liquid_glass_settings(BLUR-3-FORTE).txt     # level 3 (strong)
+│   ├── liquid_glass_settings(BLUR).txt             # alias of level 3
+│   ├── scegli-blur.sh                    # level picker (0-3), plus --fix to reload
+│   ├── applica-profilo.sh                # applies a level, saves, guards dock keys
+│   └── gen_profiles.py                    # regenerates the levels from live settings
+├── install.sh                            # also writes the desktop launchers
 ├── uninstall.sh
 ├── animazione-esempio.json                 # example of the animation parameters
 ├── LICENSE
@@ -255,6 +322,15 @@ The extension removes the default background using `.quick-settings { background
 **The media player is shifted to the right.**
 
 The extension neutralizes padding injected into tile children by certain themes, including MacTahoe. If the issue persists with another theme, please [open an issue](https://github.com/Agnell02010/Pulsar-CC-27-Gnome/issues).
+
+**The glass looks wrong after switching blur level.**
+
+The settings were applied but the extension kept its previous blur state. Reload
+it — this resets the blur pipeline and keeps your level:
+
+```bash
+./liquid-glass/scegli-blur.sh --fix
+```
 
 **Which GNOME versions are supported?**
 
