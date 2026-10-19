@@ -6,6 +6,7 @@
 #
 # Usage:
 #   ./applica-profilo.sh 0           no blur (crisp glass)
+#   ./applica-profilo.sh 0.5         barely there, half of level 1
 #   ./applica-profilo.sh 1           light blur   <- clean middle ground
 #   ./applica-profilo.sh 2           medium blur
 #   ./applica-profilo.sh 3           strong blur
@@ -47,6 +48,10 @@ case "$MODO" in
     FILE="$DIR/liquid_glass_settings(NO_BLUR).txt"
     NOME="0 — no blur (crisp)"
     ;;
+  0.5|05|0,5|half|minimo|pochissimo)
+    FILE="$DIR/liquid_glass_settings(BLUR-05-MINIMO).txt"
+    NOME="0.5 — barely there"
+    ;;
   1|1-LEGGERO|leggero|light|l)
     FILE="$DIR/liquid_glass_settings(BLUR-1-LEGGERO).txt"
     NOME="1 — light blur"
@@ -67,8 +72,8 @@ case "$MODO" in
     exit 0
     ;;
   *)
-    echo "Usage: $0 [0|1|2|3|salva]" >&2
-    echo "  0 = no blur, 1 = light, 2 = medium, 3 = strong" >&2
+    echo "Usage: $0 [0|0.5|1|2|3|salva]" >&2
+    echo "  0 = no blur, 0.5 = barely there, 1 = light, 2 = medium, 3 = strong" >&2
     exit 2
     ;;
 esac

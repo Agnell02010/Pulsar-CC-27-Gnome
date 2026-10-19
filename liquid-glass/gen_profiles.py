@@ -35,9 +35,10 @@ OUT = os.path.expanduser("~/Pulsar-CC-27-Gnome/liquid-glass")
 SURFACES = ("menu", "panel-menu", "quick-settings", "notification",
             "osd", "application", "dock")
 
-# Level 3 = live look, level 0 = no blur. 1 and 2 split the range evenly.
-RATIOS = {0: 0.0, 1: 1.0 / 3.0, 2: 2.0 / 3.0, 3: 1.0}
-NAMES = {0: "NO_BLUR", 1: "BLUR-1-LEGGERO",
+# Level 3 = live look, level 0 = no blur. 0.5, 1 and 2 split the range evenly,
+# so 0.5 is exactly half of level 1.
+RATIOS = {0: 0.0, 0.5: 1.0 / 6.0, 1: 1.0 / 3.0, 2: 2.0 / 3.0, 3: 1.0}
+NAMES = {0: "NO_BLUR", 0.5: "BLUR-05-MINIMO", 1: "BLUR-1-LEGGERO",
          2: "BLUR-2-MEDIO", 3: "BLUR-3-FORTE"}
 
 BLUR_RE = re.compile(r"^([a-z0-9-]+-blur-radius)=")
@@ -139,7 +140,7 @@ for path, lvl in aliases.items():
 out_of_matrix = ("top-bar", "launcher", "glass-clock",
                  "desktop-menu", "desktop-widget")
 bad = False
-for lvl in (0, 1, 2):
+for lvl in (0, 0.5, 1, 2):
     for a, b in zip(written[lvl].splitlines(), written[3].splitlines()):
         if a == b:
             continue

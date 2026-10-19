@@ -103,11 +103,12 @@ Press **`Super+S`** to open the Control Center, or click the system icon in the 
 
 ## 🎛️ Liquid Glass Blur Levels
 
-The `liquid-glass/` directory contains four blur levels, macOS-style:
+The `liquid-glass/` directory contains five blur levels, macOS-style:
 
 | Level | File | Effect |
 |---|---|---|
 | **0** | `liquid_glass_settings(NO_BLUR).txt` | No blur, crisp glass — lightest |
+| **0.5** | `liquid_glass_settings(BLUR-05-MINIMO).txt` | Barely there — exactly half of level 1 |
 | **1** | `liquid_glass_settings(BLUR-1-LEGGERO).txt` | **Light blur — the clean middle ground** |
 | **2** | `liquid_glass_settings(BLUR-2-MEDIO).txt` | Medium blur |
 | **3** | `liquid_glass_settings(BLUR-3-FORTE).txt` | Strong blur |
@@ -120,8 +121,9 @@ instructions keep working.
 `scegli-blur.sh` is the single entry point:
 
 ```bash
-./liquid-glass/scegli-blur.sh          # interactive picker (0-3)
+./liquid-glass/scegli-blur.sh          # interactive picker (0, 0.5, 1-3)
 ./liquid-glass/scegli-blur.sh 1        # light blur (recommended)
+./liquid-glass/scegli-blur.sh 0.5      # barely there, half of level 1
 ./liquid-glass/scegli-blur.sh 0        # no blur
 ./liquid-glass/scegli-blur.sh 2        # medium
 ./liquid-glass/scegli-blur.sh 3        # strong
@@ -295,11 +297,12 @@ Log out and back in to complete the process.
 │   └── *.png                               # Background bubbles / circles
 ├── liquid-glass/                           # Liquid Glass blur levels
 │   ├── liquid_glass_settings(NO_BLUR).txt          # level 0
+│   ├── liquid_glass_settings(BLUR-05-MINIMO).txt   # level 0.5 (barely there)
 │   ├── liquid_glass_settings(BLUR-1-LEGGERO).txt   # level 1 (light)
 │   ├── liquid_glass_settings(BLUR-2-MEDIO).txt     # level 2 (medium)
 │   ├── liquid_glass_settings(BLUR-3-FORTE).txt     # level 3 (strong)
 │   ├── liquid_glass_settings(BLUR).txt             # alias of level 3
-│   ├── scegli-blur.sh                    # level picker (0-3), plus --fix to reload
+│   ├── scegli-blur.sh                    # level picker (0, 0.5, 1-3), --fix to reload
 │   ├── applica-profilo.sh                # applies a level, saves, guards dock keys
 │   └── gen_profiles.py                    # regenerates the levels from live settings
 ├── install.sh                            # also writes the desktop launchers

@@ -81,11 +81,12 @@ if gnome-extensions list 2>/dev/null | grep -q '^liquid-glass@'; then
     *)
       echo
       info "Liquid Glass blur levels:"
-      info "  0 = no blur   1 = light (clean)   2 = medium   3 = strong"
-      read -r -p "  Blur level? [0-3, default 1] " LIVELLO || LIVELLO="1"
+      info "  0 = no blur   0.5 = barely there   1 = light (clean)   2 = medium   3 = strong"
+      read -r -p "  Blur level? [0, 0.5, 1-3, default 1] " LIVELLO || LIVELLO="1"
       LIVELLO="${LIVELLO:-1}"
       case "$LIVELLO" in
         0) PROFILE="$SRC_DIR/liquid-glass/liquid_glass_settings(NO_BLUR).txt";          NOME="0 — no blur" ;;
+        0.5|05|0,5) PROFILE="$SRC_DIR/liquid-glass/liquid_glass_settings(BLUR-05-MINIMO).txt"; NOME="0.5 — barely there" ;;
         1) PROFILE="$SRC_DIR/liquid-glass/liquid_glass_settings(BLUR-1-LEGGERO).txt";   NOME="1 — light blur" ;;
         2) PROFILE="$SRC_DIR/liquid-glass/liquid_glass_settings(BLUR-2-MEDIO).txt";     NOME="2 — medium blur" ;;
         3) PROFILE="$SRC_DIR/liquid-glass/liquid_glass_settings(BLUR-3-FORTE).txt";     NOME="3 — strong blur" ;;

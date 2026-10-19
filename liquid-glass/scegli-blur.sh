@@ -3,10 +3,11 @@
 # Liquid Glass - scegli il livello di blur
 #
 # Avvia lo script, chiede "Livello blur?" e applica il livello scelto.
-# Nessun argomento obbligatorio: 0 = niente blur, 3 = forte (il default).
+# Nessun argomento obbligatorio: 0 = niente blur, 0.5 = appena percettibile,
+# 3 = forte (il default).
 #
 #   ./scegli-blur.sh          chiede il livello
-#   ./scegli-blur.sh 2        applica il 2 senza chiedere (per scorciatoie)
+#   ./scegli-blur.sh 0.5      applica il livello senza chiedere (per scorciatoie)
 #   ./scegli-blur.sh --fix    se l'effetto n/rifrazione e' sparito, ricarica
 #                             l'estensione e ripristina il livello attuale
 #
@@ -30,6 +31,7 @@ corrente() {
   r="$(dconf dump "$LG_PATH" | grep '^menu-blur-radius=' | cut -d= -f2)"
   case "$r" in
     0)  echo 0 ;;
+    2)  echo 0.5 ;;
     4)  echo 1 ;;
     8)  echo 2 ;;
     12) echo 3 ;;
@@ -42,6 +44,7 @@ stampa_menu() {
   echo "  Attuale: livello ${B}${1}${N}"
   echo
   echo "    ${B}0${N}  niente blur      vetro trasparente"
+  echo "    ${B}0.5${N} appena percettibile, meta' del livello leggero"
   echo "    ${B}1${N}  blur leggero"
   echo "    ${B}2${N}  blur medio"
   echo "    ${B}3${N}  blur forte       quello predefinito"
@@ -76,13 +79,13 @@ if [ -n "${1:-}" ]; then
 else
   stampa_menu "$(corrente)"
   while true; do
-    printf "  %sLivello blur%s (0-3, invio = %s): " "$B" "$N" "$(corrente)"
+    printf "  %sLivello blur%s (0, 0.5, 1, 2, 3 - invio = %s): " "$B" "$N" "$(corrente)"
     read -r LIVELLO || { echo; exit 0; }
     LIVELLO="${LIVELLO// /}"
     [ -z "$LIVELLO" ] && LIVELLO="$(corrente)"
     case "$LIVELLO" in
-      0|1|2|3) break ;;
-      *) printf "  %s  inserisci 0, 1, 2 o 3%s\n" "$R" "$N" ;;
+      0|0.5|0,5|05|1|2|3) break ;;
+      *) printf "  %s  inserisci 0, 0.5, 1, 2 o 3%s\n" "$R" "$N" ;;
     esac
   done
 fi
