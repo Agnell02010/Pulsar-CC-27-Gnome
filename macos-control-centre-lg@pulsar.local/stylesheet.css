@@ -57,6 +57,28 @@
 .mac-cc .quick-toggle > .mac-media-controls { padding: 0; spacing: 0; margin-bottom: 14px; }
 .mac-cc .quick-toggle > .mac-slider-row     { padding: 0; spacing: 7px; }
 
+/* Third rule of the same theme, on the same class: MacTahoe paints a white glow
+   INSIDE every .quick-toggle, i.e. inside our tiles, the media box and the four
+   round buttons (all tagged with "quick-toggle" for Liquid Glass):
+
+       .quick-toggle, .quick-toggle-has-menu, .quick-slider {
+           box-shadow: inset 0 0 4px rgba(255, 255, 255, 0.35) !important;
+       }
+
+   On the wide tiles that blurred inset read as a white line hugging the top
+   edge; on the 65px round buttons it collapsed into a dot. It is the theme's
+   own highlight, drawn ON TOP of the glass, and it fought the glass' own light
+   (which already adds a rim, a specular and a sheen to the same edges). We
+   remove it: the glass is the one that lights these widgets now.
+   The selector is more specific than the theme's, and !important is required
+   because the theme declares it !important. (background-color and padding from
+   that same rule are left alone: the look was tuned with them in place.) */
+.mac-cc .quick-toggle,
+.mac-cc .quick-toggle-has-menu,
+.mac-cc .quick-slider {
+    box-shadow: none !important;
+}
+
 /* Interactive circle inside the tile (e.g. Wi-Fi On/Off).
    Liquid Glass clears "background-color" on every widget it recognises, so for
    the bubble I use a background image (background-image): Liquid Glass does not
