@@ -42,6 +42,12 @@ NAMES = {0: "NO_BLUR", 1: "BLUR-1-LEGGERO",
 
 BLUR_RE = re.compile(r"^([a-z0-9-]+-blur-radius)=")
 
+# Runtime state the extension re-detects on its own. Baking it in only adds
+# churn (a tray icon appearing changes the list) and on another machine it
+# would be somebody else's menus. dconf load leaves a key absent from the file
+# untouched, so dropping it is also the safer behaviour.
+DROP = {"detected-extra-menus"}
+
 # Keys that must be present, otherwise the live state is not the tuned one and
 # we would bake a broken profile.
 MUST = ("enable-dock-glass", "dock-glass-shape-n", "dock-glass-max-z",
@@ -95,6 +101,8 @@ for lvl, name in NAMES.items():
         if m and m.group(1) in wanted:
             seen.add(m.group(1))
             lines.append(f"{m.group(1)}={wanted[m.group(1)]}")
+        elif line.split("=", 1)[0] in DROP:
+            continue
         else:
             lines.append(line)
 
