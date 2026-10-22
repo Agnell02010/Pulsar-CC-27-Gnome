@@ -52,6 +52,20 @@ Created by **[Agnell02010](https://github.com/Agnell02010)**.
 
 4. *(Recommended)* The **User Themes** GNOME extension to apply custom Shell themes.
 5. *(For the media player)* Any MPRIS-compatible media player, such as Spotify or Firefox.
+6. *(Recommended)* The matching **[Pulsar Notification Center](https://github.com/Agnell02010/Pulsar-Notification-Center)**
+   for the notifications and widgets drawer.
+
+> **Upgrading from the Control Centre shipped with Pulsar OS?**
+> The stock `macos-control-centre@pulsar.local` extension contains its own
+> **old** Notification Center with the same date menu: if it stays enabled,
+> you will see that old drawer (hardcoded "La Coruña", old transport glyphs,
+> fixed blue tint) instead of the current one. The installer disables the
+> stock extension; keep it disabled and install the separate
+> [Pulsar Notification Center](https://github.com/Agnell02010/Pulsar-Notification-Center).
+>
+> ```bash
+> gnome-extensions disable macos-control-centre@pulsar.local
+> ```
 
 ---
 
