@@ -1,6 +1,8 @@
 {
     "enabled": true,
 
+    "enter": true,
+
     "enterBase": 20,
     "enterStep": 20,
     "enterDuration": 280,

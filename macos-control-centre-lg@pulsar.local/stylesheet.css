@@ -131,8 +131,8 @@
 .mac-icon { icon-size: 23px; }
 .mac-small { icon-size: 18px; color: rgba(255, 255, 255, 0.85); }
 
-.mac-title { font-size: 12px; font-weight: 700; color: white; }
-.mac-sub { font-size: 10px; font-weight: 500; color: rgba(255, 255, 255, 0.75); }
+.mac-title { font-size: 12px; font-weight: 600; color: white; }
+.mac-sub { font-size: 10px; font-weight: 500; color: rgba(255, 255, 255, 0.65); }
 
 /* Standalone round buttons (e.g. Dark Mode, Screenshot) */
 .mac-circle {
@@ -423,7 +423,7 @@
 }
 .mac-panel-label {
     font-size: 13px;
-    font-weight: 400;
+    font-weight: 500;
     color: white;
 }
 .mac-panel-sub {
@@ -470,8 +470,9 @@
     color: rgba(255, 255, 255, 0.85);
 }
 
-/* -------- macOS-style toggle switch (St.Switch is absent in GNOME 50) ------
- * Track + a JS-positioned knob child. `:checked` recolours the track blue.
+/* -------- macOS-style toggle switch (St.Switch is absent in GNOME 50) -------
+ * Track + a JS-positioned knob child. Monochrome like the macOS 27 sheets:
+ * off = a translucent white track, on = a white track with a dark knob.
  * Gradients again, because the switch lives inside the glass pod. */
 .mac-switch {
     width: 40px;

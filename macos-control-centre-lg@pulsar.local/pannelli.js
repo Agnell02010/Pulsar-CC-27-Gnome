@@ -1119,6 +1119,11 @@ export function crea(ext, h) {
             const myGen = gen;
             if (!ensureRoot()) { resetMainInstant(); return false; }
             clear();
+            // Lift the tile glass BEFORE the sheet starts to grow: with the
+            // stripes mid-flight the pod pieces snap off during the motion
+            // (that read as a different animation). Up front, the change of
+            // scenery is one whole and the reveal motion stays the one motion.
+            togGLassen(false);
             if (kind !== 'bluetooth') stopBtDiscovery();
             currentKind = kind;
 
@@ -1246,6 +1251,10 @@ export function crea(ext, h) {
                     detailRoot.opacity = 255;
                 } catch (e) {}
                 anchor = null;
+                // The sheet has fully contracted: the tile glass comes back
+                // in step with the tiles growing out of their own centre,
+                // not 120 ms later mid-fade like the ticker fallback did.
+                togGLassen(true);
                 if (mainKids) for (const k of mainKids) {
                     try {
                         k.remove_all_transitions();
@@ -1267,6 +1276,7 @@ export function crea(ext, h) {
         currentKind = null;
         stopBtDiscovery();
         if (detailRoot) { try { detailRoot.hide(); detailRoot.opacity = 0; detailRoot.scale_x = 1; detailRoot.scale_y = 1; } catch (e) {} }
+        togGLassen(true);
         if (mainKids) for (const k of mainKids) { try { k.show(); } catch (e) {} }
         try { anchor = null; } catch (e) {}
         GLib.timeout_add(GLib.PRIORITY_DEFAULT, 60, () => { closing = false; return GLib.SOURCE_REMOVE; });
@@ -1286,11 +1296,267 @@ export function crea(ext, h) {
         detailRoot = null; detailCont = null; mainKids = null;
     }
 
+    /* ---------- reactivate sliders without any relogin ----------
+     * The gliding bars live in extension.js, and the shell caches that module:
+     * only pannelli.js reloads on disable/enable. When the running
+     * extension.js still lacks the built-in glide (no `_hasGlide` marker, so
+     * no logout happened yet), this module takes the system-driven jumps over
+     * by itself: a jump pulls the bar back and then glides to the new value.
+     * Once extension.js is fresh it carries the marker, and the hook stays
+     * off so the two never fight over the same bar. */
+    function attaccaGlide(slider) {
+        if (!slider || slider._glideHook)
+            return;
+        slider._glideHook = true;
+        let last = Number.isFinite(slider.value) ? slider.value : 0;
+        let dragging = false, gid = 0, mine = false;
+        slider.connect('drag-begin', () => {
+            dragging = true;
+            if (gid) { GLib.source_remove(gid); gid = 0; }
+        });
+        slider.connect('drag-end', () => { dragging = false; });
+        slider.connect('notify::value', () => {
+            const v = slider.value;
+            if (mine) { last = v; return; }
+            if (dragging) { last = v; return; }
+            if (Math.abs(v - last) < 0.015) { last = v; return; }
+            // A jump the user did not make: pull back, then glide there.
+            const from = last, to = Math.max(0, Math.min(1, v));
+            mine = true;
+            slider.value = Math.max(0, Math.min(1, from));
+            mine = false;
+            if (gid) GLib.source_remove(gid);
+            const t0 = GLib.get_monotonic_time() / 1000, DUR = 200;
+            gid = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
+                gid = 0;
+                if (dragging)
+                    return GLib.SOURCE_REMOVE;
+                const p = Math.min((GLib.get_monotonic_time() / 1000 - t0) / DUR, 1);
+                const e = 1 - Math.pow(1 - p, 3);
+                mine = true;
+                slider.value = from + (to - from) * e;
+                mine = false;
+                if (p >= 1)
+                    return GLib.SOURCE_REMOVE;
+                return GLib.SOURCE_CONTINUE;
+            });
+        });
+    }
+    function installaGlide() {
+        if (ext._hasGlide)
+            return;
+        let tries = 0;
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
+            let trovati = 0;
+            for (const s of [ext._display?.slider, ext._sound?.slider])
+                if (s) { trovati++; attaccaGlide(s); }
+            // The sliders are built synchronously, so two passes are plenty;
+            // keep polling a while for slow machines, then give up quietly.
+            return (trovati >= 2 || ++tries > 25) ? GLib.SOURCE_REMOVE : GLib.SOURCE_CONTINUE;
+        });
+    }
+
+    /* ---------- pod tags follow the sheet ----------
+     * The sheet lives inside the menu, where the tiles sit: while it is
+     * visible, Liquid Glass keeps treating the tagged pods as its glass
+     * regions and paints a dark refraction cap right over the sheet's rows,
+     * so every symbol inside looks like it carries a black gradient. While a
+     * sheet shows, the `.quick-toggle` tag is lifted from the pods (the clean
+     * sheet look stays, LG's own pod glass waits), and the tag is restored
+     * when back on the tile grid so the glass returns there. A ticker re-applies
+     * whatever state is current, so reopen/refresh paths self-heal. */
+    let glassTagged = null;
+    /* The AO penumbra (the inner ~7.5px dark band) reads as a second border
+     * on every pod: the widget's own CSS border outside, the AO ring inside.
+     * LG's own fix pins `ao_intensity` at glass creation, but the cached
+     * manager only rebuilds at logout — so the same pin is installed LIVE on
+     * every toggles glass found in the CC menu and the notification drawer
+     * (its manager shares the class, so one lookup covers both). The rest of
+     * the suite keeps the AO from the prefs; the ticker self-heals new glass. */
+    let _pinati = new WeakSet();
+    let _pinCount = 0;
+    /* Keep only the AO pin live: LG's AO penumbra reads as a second border
+     * on CC/NC toggles; forcing ao_intensity to 0 removes it without
+     * touching region size/radius so the glass stays exactly as before. */
+    const LG_UUID = 'liquid-glass@thinkingcoding1231.gmail.com';
+    /* Tiny outward expansion so the glass reaches the widget's CSS border
+     * without spilling over it (half-millimetre scale). */
+    const GLASS_GROW = 0;
+    function pinnaAO() {
+        /* LG's state object owns both toggles managers (the CC menu and the
+         * NC drawer share the class), and each manager owns its glass
+         * directly — no actor hunting needed. */
+        const lg = Main.extensionManager?.lookup?.(LG_UUID)?.stateObj ?? null;
+        const dbg = [];
+        try {
+            if (GLib.file_test('/tmp/opencode/cc-pin-debug', GLib.FileTest.EXISTS)) {
+                const g1 = lg?._quickSettingsManager?.glass;
+                const g2 = lg?._notificationCenterGlass?.glass;
+                dbg.push(`lg=${!!lg} qs=${!!lg?._quickSettingsManager} nc=${!!lg?._notificationCenterGlass} pins=${_pinCount} u1=${!!g1?._renderer?.uniforms?.set} u2=${!!g2?._renderer?.uniforms?.set} wr1=${`${g1?.setGlassRegions ?? ''}`.includes('origRegions') ? 1 : 0} geo1=${g1?._geoLogged ?? '-'} geo2=${g2?._geoLogged ?? '-'}`);
+            }
+        } catch (e) {}
+        for (const mgr of [lg?._quickSettingsManager ?? null, lg?._notificationCenterGlass ?? null]) {
+            const glass = mgr?.glass ?? null;
+            if (!glass || _pinati.has(glass))
+                continue;
+            const uniforms = glass._renderer?.uniforms;
+            if (!uniforms?.set)
+                continue;
+            try {
+                const setUniform = uniforms.set.bind(uniforms);
+                uniforms.set = (k, v) => setUniform(k, k === 'ao_intensity' ? 0.0 : v);
+                setUniform('ao_intensity', 0.0);
+                const origRegions = glass.setGlassRegions.bind(glass);
+                glass.setGlassRegions = (rs) => origRegions((rs ?? []).map((r) => ({
+                    ...r,
+                    x: r.x - GLASS_GROW,
+                    y: r.y - GLASS_GROW,
+                    w: r.w + GLASS_GROW * 2,
+                    h: r.h + GLASS_GROW * 2,
+                })));
+                _pinati.add(glass);
+                _pinCount++;
+            } catch (e) {}
+        }
+    }
+    function togGLassen(on) {
+        try {
+            if (on) {
+                if (glassTagged)
+                    for (const w of glassTagged) {
+                        try { if (!w.is_destroyed && !w.has_style_class_name('quick-toggle')) w.add_style_class_name('quick-toggle'); } catch (e) {}
+                    }
+                glassTagged = null;
+                return;
+            }
+            if (glassTagged)
+                return;
+            glassTagged = [];
+            const walk = (a) => {
+                // The sheet keeps its own pod tag: it is what paints the
+                // frosted-glass look of the open panel. Only the tiles lift.
+                if (a === detailRoot)
+                    return;
+                if (a instanceof St.Widget && a.has_style_class_name('quick-toggle')) {
+                    a.remove_style_class_name('quick-toggle');
+                    glassTagged.push(a);
+                }
+                for (const ch of a.get_children())
+                    walk(ch);
+            };
+            if (ext._panel)
+                walk(ext._panel);
+        } catch (e) { fail(e, 'togGLassen'); }
+    }
+    let vetroTick = 0;
+    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 120, () => {
+        try {
+            // Be patient: _panel exists a moment after crea(); give up only
+            // once the instance this ticker belongs to is gone for sure.
+            if (ext._panel) {
+                const gone = typeof ext._panel.is_destroyed === 'function'
+                    ? ext._panel.is_destroyed()
+                    : ext._panel.is_destroyed === true;
+                if (gone)
+                    return GLib.SOURCE_REMOVE;
+            } else if (++vetroTick > 60) {
+                warn('vetro ticker: panel never appeared');
+                return GLib.SOURCE_REMOVE;
+            }
+            if (vetroTick++ === (ext._panel ? 0 : 60))
+                warn('vetro ticker alive');
+            pinnaAO();
+            const sheetUp = !!(detailRoot?.visible && detailRoot?.mapped);
+            togGLassen(!sheetUp);
+        } catch (e) { fail(e, 'vetro ticker'); }
+        return GLib.SOURCE_CONTINUE;
+    });
+
+    /* ---------- remote screenshot probe (diagnostics only) ----------
+     * When /tmp/opencode/cc-probe exists while this module loads, the menu is
+     * opened and each panel is shown in turn (~1.1 s dwell), logging a
+     * timestamp per step into /tmp/opencode/cc-probe.log. An outside
+     * screenshot loop then samples each panel with no input injection. The
+     * flag file gates it, so a normal boot never runs this. */
+    function probeRun() {
+        try {
+            if (!GLib.file_test('/tmp/opencode/cc-probe', GLib.FileTest.EXISTS))
+                return;
+            const PATH = '/tmp/opencode/cc-probe.log';
+            let log = `probe ${Date.now()}\n`;
+            const casa = () => {
+                try { GLib.file_set_contents(PATH, log); } catch (e) {}
+            };
+            const step = () => {
+                if (step.n === undefined)
+                    step.n = 0;
+                if (step.n === 0) {
+                    try { ext._qs.menu.open(true); } catch (e) { log += `menu: ${e}\n`; }
+                    step.n++;
+                    if (GLib.file_test('/tmp/opencode/cc-probe-menu', GLib.FileTest.EXISTS)) {
+                        log += `menu-only\n`;
+                        casa();
+                        return GLib.SOURCE_REMOVE;
+                    }
+                    // Open the app's own menu (File/Edit/View) as the glass
+                    // reference: /tmp/opencode/mm-probe selects this mode and
+                    // stops there, so the burst samples only the popup.
+                    if (GLib.file_test('/tmp/opencode/mm-probe', GLib.FileTest.EXISTS)) {
+                        try {
+                            const btn = Main.panel.statusArea['pulsaros-apple-menu'];
+                            btn?.menu?.open?.(true) ?? (log += 'apple menu: no button\n');
+                        } catch (e) { log += `apple menu: ${e}\n`; }
+                        log += `apple-menu\n`;
+                        casa();
+                        return GLib.SOURCE_REMOVE;
+                    }
+                    return GLib.SOURCE_CONTINUE;
+                }
+                const kinds = ['wifi', 'bluetooth', 'display', 'focus', 'sound'];
+                const anchors = [ext._wifi, ext._bt, ext._display, ext._dnd, ext._sound];
+                const i = step.n - 1;
+                if (i > kinds.length) {
+                    log += `done ${Date.now()}\n`;
+                    casa();
+                    return GLib.SOURCE_REMOVE;
+                }
+                if (i === kinds.length) {
+                    try { close(); } catch (e) {}
+                    step.n++;
+                    return GLib.SOURCE_CONTINUE;
+                }
+                log += `open ${kinds[i]} ${Date.now()}\n`;
+                try { open(kinds[i], anchors[i]); } catch (e) { log += `err ${kinds[i]}: ${e}\n`; }
+                step.n++;
+                return GLib.SOURCE_CONTINUE;
+            };
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1100, step);
+        } catch (e) {}
+    }
+
     // The tiles are built by extension.js right after crea() returns, so
     // decorate them once the panel exists (this idle callback runs when
     // enable() has finished).
     GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+        /* Strip test: when /tmp/opencode/cc-noqt exists, remove the
+         * `quick-toggle` tag from every widget inside the panel, so the
+         * eXternal Liquid Glass stops treating them as pods. Diagnostic
+         * only: the flag file is the switch. */
+        try {
+            if (GLib.file_test('/tmp/opencode/cc-noqt', GLib.FileTest.EXISTS)) {
+                const strip = (a) => {
+                    if (a instanceof St.Widget && a.has_style_class_name('quick-toggle'))
+                        a.remove_style_class_name('quick-toggle');
+                    for (const child of a.get_children())
+                        strip(child);
+                };
+                if (ext._panel) strip(ext._panel);
+                warn('strip test: quick-toggle tags removed');
+            }
+        } catch (e) { fail(e, 'strip test'); }
         decorateTiles();
+        installaGlide();
+        probeRun();
         return GLib.SOURCE_REMOVE;
     });
 
