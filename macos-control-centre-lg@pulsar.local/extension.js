@@ -301,10 +301,10 @@ const ANIM_DEFAULT = {
     // Open: the tiles arrive in a cascade when you open the panel.
     // The arrival has two phases: first they overshoot the final
     // size a little (enterOvershoot), then they settle -> "liquid" effect.
-    enterBase: 20,        // initial delay (ms)
-    enterStep: 20,        // delay between two consecutive tiles (ms)
-    enterDuration: 280,   // arrival duration (ms)
-    enterSettle: 150,     // final settle duration (ms)
+    enterBase: 0,         // initial delay (ms)
+    enterStep: 12,        // delay between two consecutive tiles (ms)
+    enterDuration: 180,   // arrival duration (ms)
+    enterSettle: 80,      // final settle duration (ms)
     enterScale: 0.90,     // starting scale (1 = fade only)
     enterRise: 8,         // how many px they rise from (0 = none)
     enterOvershoot: 1.02, // how much they overshoot before settling
@@ -334,6 +334,13 @@ const ANIM_DEFAULT = {
     sliderDown: 240,
 };
 
+const ANIM_PREVIOUS_DEFAULT = {
+    enterBase: 20,
+    enterStep: 20,
+    enterDuration: 280,
+    enterSettle: 150,
+};
+
 let _anim = {...ANIM_DEFAULT};
 
 // (Re)reads the parameters from the file. Called every time the panel opens.
@@ -342,13 +349,27 @@ function loadAnim() {
     try {
         const [, bytes] = GLib.file_get_contents(ANIM_PATH);
         const json = JSON.parse(new TextDecoder().decode(bytes));
+        let migrated = false;
         for (const k of Object.keys(ANIM_DEFAULT)) {
             // Only values of the same type are accepted: a typo cannot break anything.
-            if (typeof json[k] === typeof ANIM_DEFAULT[k])
-                _anim[k] = json[k];
+            if (typeof json[k] !== typeof ANIM_DEFAULT[k])
+                continue;
+            if (Object.prototype.hasOwnProperty.call(ANIM_PREVIOUS_DEFAULT, k) &&
+                json[k] === ANIM_PREVIOUS_DEFAULT[k]) {
+                json[k] = ANIM_DEFAULT[k];
+                migrated = true;
+            }
+            _anim[k] = json[k];
+        }
+        if (migrated) {
+            try {
+                GLib.file_set_contents(ANIM_PATH, `${JSON.stringify(json, null, 4)}\n`);
+            } catch (e) {
+                console.warn(`macos-cc: cannot migrate ${ANIM_PATH}: ${e}`);
+            }
         }
     } catch (e) {
-        // missing or malformed file: the defaults stay in place
+        // Missing or malformed file: the defaults stay in place.
     }
     return _anim;
 }

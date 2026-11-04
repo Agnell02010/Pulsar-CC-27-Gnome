@@ -244,10 +244,10 @@ an error, the defaults are used (nothing can break).
 {
     "enabled": true,          // false = no animation at all
 
-    "enterBase": 20,          // initial delay of the cascade (ms)
-    "enterStep": 20,          // delay between two tiles (ms)  <- the "rhythm"
-    "enterDuration": 280,     // arrival duration (ms)
-    "enterSettle": 150,       // final settle duration (ms)
+    "enterBase": 0,           // initial delay of the cascade (ms)
+    "enterStep": 12,          // delay between two tiles (ms)  <- the "rhythm"
+    "enterDuration": 180,     // arrival duration (ms)
+    "enterSettle": 80,        // final settle duration (ms)
     "enterScale": 0.90,       // starting scale (1 = fade only)
     "enterRise": 8,           // how many px they drop from (0 = none)
     "enterOvershoot": 1.02,   // how far it overshoots before settling
@@ -271,10 +271,17 @@ an error, the defaults are used (nothing can break).
 }
 ```
 
+The default cascade now completes in about **380 ms** for the last of the 11
+tiles (`enterBase + 10 × enterStep + enterDuration + enterSettle`), down from
+about 650 ms. This only shortens the panel's entrance animation; it does not
+change extension startup or GNOME's cold-start time.
+If an existing config still has the previous built-in values, they are migrated
+to these defaults on the next panel open; values customized by the user are kept.
+
 Quick examples:
 
 - slower, "deluxe" cascade: `enterStep: 30`, `enterDuration: 320`
-- crisper/instant (MacOS style): `enterStep: 12`, `enterDuration: 180`
+- even crisper/instant (MacOS style): `enterStep: 8`, `enterDuration: 140`, `enterSettle: 60`
 - **even more "liquid"**: `enterOvershoot: 1.04`, `pressSquash: 0.05`
 - **no bounce** (crisp movement): `pressUp: 120`, `pressOvershoot: 1.0`, `enterOvershoot: 1.0`
 - **no squash** (uniform compression): `pressSquash: 0`
