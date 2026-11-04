@@ -3,10 +3,10 @@
 
     "enter": true,
 
-    "enterBase": 20,
-    "enterStep": 20,
-    "enterDuration": 280,
-    "enterSettle": 150,
+    "enterBase": 0,
+    "enterStep": 12,
+    "enterDuration": 180,
+    "enterSettle": 80,
     "enterScale": 0.90,
     "enterRise": 8,
     "enterOvershoot": 1.02,
