@@ -20,7 +20,12 @@ function symbol(name) {
 
 // --- Laptop backlight: reads /sys and writes through logind
 const BL_DIR = '/sys/class/backlight';
+let _backlight;
+let _backlightScanned = false;
 function findBacklight() {
+    if (_backlightScanned)
+        return _backlight;
+    _backlightScanned = true;
     try {
         const en = Gio.File.new_for_path(BL_DIR).enumerate_children(
             'standard::name', Gio.FileQueryInfoFlags.NONE, null);
@@ -29,10 +34,11 @@ function findBacklight() {
         while ((info = en.next_file(null)))
             names.push(info.get_name());
         en.close(null);
-        return names[0] ?? null;
+        _backlight = names[0] ?? null;
     } catch (e) {
-        return null;
+        _backlight = null;
     }
+    return _backlight;
 }
 function readInt(path) {
     try {
@@ -750,7 +756,10 @@ export default class MacControlCentre extends Extension {
                 // First the cascading entrance, then the sync: so the state
                 // "pop"s never overlap the opening animation.
                 this._startEntrance();
-                this._refresh();
+                later(140, () => {
+                    if (this._panel && this._qs?.menu?.isOpen)
+                        this._refresh();
+                });
             } else {
                 this._pan?.close();
             }
