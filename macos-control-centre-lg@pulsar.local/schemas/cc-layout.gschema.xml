@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <!--
+    Only the editable layout of the Control Center lives here, in its own
+    schema: the shell caches the extension's main schema in-process, so a new
+    key added there would not be visible until a login. This file is compiled
+    into schemas/gschemas.compiled and pannelli.js reads it through its own
+    Gio.SettingsSchemaSource, which is reloaded on every enable.
+  -->
+  <schema id="org.gnome.shell.extensions.macos-control-centre-lg.layout"
+          path="/org/gnome/shell/extensions/macos-control-centre-lg/layout/">
+    <key name="layout" type="s">
+      <default>'[]'</default>
+      <summary>Control Center layout</summary>
+      <description>JSON list of {id, span}. Order is the packing order; span 1 draws a block as a circle, span 2 as a pill (only the toggles can change). An id that is absent is removed from the grid.</description>
+    </key>
+  </schema>
+</schemalist>

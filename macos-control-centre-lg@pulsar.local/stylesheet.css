@@ -65,45 +65,48 @@
            box-shadow: inset 0 0 4px rgba(255, 255, 255, 0.35) !important;
        }
 
-   On the wide tiles that blurred inset read as a white line hugging the top
-   edge; on the 65px round buttons it collapsed into a dot. It is the theme's
-   own highlight, drawn ON TOP of the glass, and it fought the glass' own light
-   (which already adds a rim, a specular and a sheen to the same edges). We
-   remove it: the glass is the one that lights these widgets now.
+   That is exactly the light this panel wants on its pieces, only far too loud:
+   it is put back at less than half of the theme's strength, so it is a white
+   illumination of the border and no longer a line. `inset 0 0` spreads it from
+   every edge inwards: it hugs the outline (which it follows through the border
+   radius, pills and circles alike) and dies out towards the middle of the pod,
+   which is the volume. It is white and it is little, like the glow the theme
+   draws when the pointer is right there.
    The selector is more specific than the theme's, and !important is required
    because the theme declares it !important. (background-color and padding from
    that same rule are left alone: the look was tuned with them in place.) */
 .mac-cc .quick-toggle,
 .mac-cc .quick-toggle-has-menu,
 .mac-cc .quick-slider {
-    box-shadow: none !important;
+    box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.15) !important;
 }
 
 /* Interactive circle inside the tile (e.g. Wi-Fi On/Off).
-   Liquid Glass clears "background-color" on every widget it recognises, so for
-   the bubble I use a background image (background-image): Liquid Glass does not
-   touch it and the bubble survives. The PNGs are white squares with the right
-   transparency, cropped to a circle by the widget's border-radius.
-   (This route was chosen because the player album art also uses
-   url("file://...") and it works.) The paths are RELATIVE to the CSS on
-   purpose: St resolves them against the extension folder, so the extension
-   works in any home directory (do not put absolute /home/... paths or it
-   breaks for everyone else). */
+   The disc itself is drawn by PodShape in controlCenter.js: a flat white circle
+   when on, a flat neutral grey one when off. This widget is only the hit area,
+   so it must stay completely transparent — the old bubble-*.png spheres were
+   the source of the "dissolve" (gradient + dark rim) the user could still see
+   through this rule's :checked/:hover specificity. */
 .mac-bubble {
     width: 38px;
     height: 38px;
+    border: none;
     border-radius: 119px;
-    background-image: url("bubble-off.png");
+    background: none;
+    background-color: transparent;
+    background-image: none;
     color: white;
 }
 .mac-bubble:hover {
-    background-image: url("bubble-hover.png");
+    background: none;
+    background-image: none;
 }
 .mac-bubble:checked, .mac-bubble:active {
-    background-image: url("bubble-on.png");
-    color: black;
+    background: none;
+    background-image: none;
+    color: #1c1c1e;
 }
-.mac-bubble:checked .mac-icon, .mac-bubble:active .mac-icon { color: black; }
+.mac-bubble:checked .mac-icon, .mac-bubble:active .mac-icon { color: #1c1c1e; }
 
 /* Interactive text area that opens the drop-down menu */
 .mac-tile-text-btn {
@@ -128,37 +131,39 @@
 }
 .mac-tile-text-btn:focus { box-shadow: none; outline: none; }
 
-.mac-icon { icon-size: 23px; }
+.mac-icon { icon-size: 26px; }
 .mac-small { icon-size: 18px; color: rgba(255, 255, 255, 0.85); }
 
 .mac-title { font-size: 12px; font-weight: 600; color: white; }
 .mac-sub { font-size: 10px; font-weight: 500; color: rgba(255, 255, 255, 0.65); }
 
-/* Standalone round buttons (e.g. Dark Mode, Screenshot) */
+/* Standalone round buttons (e.g. Dark Mode, Screenshot).
+   Like the bubbles, the disc is Cairo: flat white when on, flat grey when off,
+   no border. This actor is the hit target and must not paint anything. */
 .mac-circle {
     width: 65px;
     min-width: 65px;
     max-width: 65px;
     height: 65px;
     border-radius: 119px;
-    background-color: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    border: none;
+    background: none;
+    background-color: transparent;
+    background-image: none;
     color: white;
     padding: 0;
 }
 .mac-circle .mac-icon { icon-size: 30px; }
-/* Hover and "on" state: I use background images, which Liquid Glass does not
-   touch (otherwise the glass would clear the background-color). While off the
-   button glass stays; while on the solid white circle appears, like on MacOS. */
 .mac-circle:hover {
-    background-image: url("circle-hover.png");
+    background: none;
+    background-image: none;
 }
 .mac-circle:checked, .mac-circle:active {
-    background-image: url("circle-on.png");
-    border-color: white;
-    color: black;
+    background: none;
+    background-image: none;
+    color: #1c1c1e;
 }
-.mac-circle:checked .mac-icon, .mac-circle:active .mac-icon { color: black; }
+.mac-circle:checked .mac-icon, .mac-circle:active .mac-icon { color: #1c1c1e; }
 .mac-circle:focus { box-shadow: none; outline: none; }
 
 /* Media player box (whole) locked to 146x146 */
@@ -245,7 +250,7 @@
 .mac-media-button:focus { box-shadow: none; outline: none; }
 
 .mac-media-icon {
-    icon-size: 23px; 
+    icon-size: 26px;
 }
 
 .mac-bubble:focus, .mac-circle:focus, .mac-tile-text-btn:focus { box-shadow: none; }
@@ -271,7 +276,9 @@
    are aligned (1:1). */
 .mac-slider-row { spacing: 7px; padding: 0; min-height: 28px; }
 .mac-slider-tile .slider {
-    -slider-height: 5px;
+    /* Slightly beefier bar than the 5px it had: at this size the fill read as a
+       1px hairline under the glass. */
+    -slider-height: 6px;
     -slider-background-color: rgba(255, 255, 255, 0.25);
     -slider-border-color: transparent;
     -slider-active-background-color: white;
@@ -310,12 +317,12 @@
 /* -------- Detail panels (macOS 26 style) --------
  * The detail view replaces the main CC inside the same menu. It is tagged with
  * `quick-toggle` (see pannelli.js buildRoot) so Liquid Glass paints its real
- * frosted blur over it, exactly like the tiles. Give it the same light base as
- * the tiles (rgba(255,255,255,0.08)): with a fully transparent pod Liquid Glass
- * falls back to compositing a dark ancestor colour and the whole sheet turns
- * progressively black. Width and padding mirror .mac-cc (310 content width). */
+ * frosted blur over it, exactly like the tiles. It carries the widgets' own base
+ * (see .mac-tile): with a transparent pod Liquid Glass falls back to compositing
+ * a dark ancestor colour and the sheet drifts off the widgets' tone. Width and
+ * padding mirror .mac-cc (310 content width). */
 .mac-cc-detail {
-    width: 310px;
+    width: 318px;
     padding: 12px;
     spacing: 2px;
     /* Must match the Liquid Glass toggle corner radius
@@ -323,7 +330,7 @@
        `quick-toggle` pod too, so a smaller radius made its corners stick out of
        the glass and look broken. */
     border-radius: 32.5px;
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.15) !important;
     background-image: none;
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: none;
@@ -343,7 +350,7 @@
 .mac-panel-scroll .vscrollbar .slider {
     background-gradient-direction: vertical;
     background-gradient-start: rgba(255, 255, 255, 0.40);
-    background-gradient-end: rgba(255, 255, 255, 0.32);
+    background-gradient-end: rgba(255, 255, 255, 0.40);
     border-radius: 3px;
     min-width: 3px;
 }
@@ -390,7 +397,7 @@
     border-radius: 8px;
     background-gradient-direction: vertical;
     background-gradient-start: rgba(255, 255, 255, 0.16);
-    background-gradient-end: rgba(255, 255, 255, 0.14);
+    background-gradient-end: rgba(255, 255, 255, 0.16);
     padding: 0;
 }
 .mac-panel-chip .mac-panel-icon { icon-size: 16px; }
@@ -399,35 +406,35 @@
 .mac-chip-blue {
     background-gradient-direction: vertical;
     background-gradient-start: rgba(44, 166, 255, 0.90);
-    background-gradient-end: rgba(10, 132, 255, 0.85);
+    background-gradient-end: rgba(44, 166, 255, 0.90);
 }
 .mac-chip-purple {
     background-gradient-direction: vertical;
     background-gradient-start: rgba(213, 124, 255, 0.90);
-    background-gradient-end: rgba(191, 90, 242, 0.85);
+    background-gradient-end: rgba(213, 124, 255, 0.90);
 }
 .mac-chip-orange {
     background-gradient-direction: vertical;
     background-gradient-start: rgba(255, 183, 71, 0.90);
-    background-gradient-end: rgba(255, 159, 10, 0.85);
+    background-gradient-end: rgba(255, 183, 71, 0.90);
 }
 .mac-chip-green {
     background-gradient-direction: vertical;
     background-gradient-start: rgba(64, 220, 116, 0.90);
-    background-gradient-end: rgba(48, 209, 88, 0.85);
+    background-gradient-end: rgba(64, 220, 116, 0.90);
 }
 .mac-chip-gray {
     background-gradient-direction: vertical;
     background-gradient-start: rgba(176, 176, 181, 0.90);
-    background-gradient-end: rgba(152, 152, 157, 0.85);
+    background-gradient-end: rgba(176, 176, 181, 0.90);
 }
 .mac-panel-label {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
     color: white;
 }
 .mac-panel-sub {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 400;
     color: rgba(255, 255, 255, 0.55);
 }
@@ -440,7 +447,7 @@
 }
 /* Header: back chevron + bold title, like the macOS detail title bar. */
 .mac-panel-title {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
     color: white;
 }
@@ -454,7 +461,7 @@
     height: 1px;
     background-gradient-direction: vertical;
     background-gradient-start: rgba(255, 255, 255, 0.09);
-    background-gradient-end: rgba(255, 255, 255, 0.07);
+    background-gradient-end: rgba(255, 255, 255, 0.09);
     margin: 4px 6px;
 }
 .mac-panel-header {
@@ -485,7 +492,7 @@
        so the old 0.18 alpha made the OFF track invisible (it read as a "dark"
        pill). Keep the track clearly lighter than the glass for both states. */
     background-gradient-start: rgba(255, 255, 255, 0.50);
-    background-gradient-end: rgba(255, 255, 255, 0.42);
+    background-gradient-end: rgba(255, 255, 255, 0.50);
     border: none;
     padding: 0;
     spacing: 0;
@@ -493,7 +500,7 @@
 .mac-switch:checked {
     background-gradient-direction: vertical;
     background-gradient-start: rgba(64, 170, 255, 0.98);
-    background-gradient-end: rgba(10, 132, 255, 0.96);
+    background-gradient-end: rgba(64, 170, 255, 0.98);
 }
 .mac-switch-knob {
     width: 18px;
@@ -501,6 +508,399 @@
     border-radius: 9px;
     background-gradient-direction: vertical;
     background-gradient-start: rgba(255, 255, 255, 1);
-    background-gradient-end: rgba(240, 240, 242, 1);
+    background-gradient-end: rgba(255, 255, 255, 1);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* ===========================================================================
+   CALIBRATED GEOMETRY — authoritative (scale 0.76 of the 398 reference)
+   The sheet above is a long history of the old widget tree (PNG discs, padded
+   sliders, contradictory sizes). Everything here restates controlCenter.js so
+   it wins; the squircle, the option circle and the round buttons are Cairo.
+
+       grid    303 = 146 + 11 + 146, outer padding 12, gap 11
+       pill    146 x 68   circle d=38 at cx=33, text from x=59, centred
+       media   147 x 147  cover 38x38 r=7 at 14,14
+       circle  68 x 68
+       slider  303 x 62
+   =========================================================================== */
+
+/* Bottom padding a little tighter: the edit row sat on a 13px band of empty
+   glass that read as a thick lower border. */
+.mac-cc { padding: 13px 13px 9px; spacing: 12px; width: 318px; }
+.mac-row { spacing: 12px; }
+.mac-col { spacing: 12px; width: 153px; }
+.mac-row-circles { spacing: 13px; }
+
+.mac-tile {
+    width: 153px; min-width: 153px; max-width: 153px;
+    /* 73 and not 68: the whole panel is drawn ~5% bigger than the geometry
+       controlCenter.js was built with, and these are the numbers pannelli.js
+       gives the pods at runtime. */
+    height: 73px;
+    padding: 0;
+    border: none;
+    /* The pod's own outline follows the glass, so it never shows as a square
+       block if the glass is a frame late (or absent): half the pill height, i.e.
+       the very same capsule the shader draws. */
+    border-radius: 36px !important;
+    background-image: none;
+    /* The base every theme gives a widget (MacTahoe: .quick-toggle is
+       rgba(255,255,255,0.15)): Liquid Glass samples it as the pod's colour and
+       then clears it inline, so the pod goes through the same path as a real
+       toggle. A transparent pod samples nothing and ends up on a different
+       tone from the widgets. */
+    background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* The option circle of the pills. The visible disc is Cairo (PodShape), so this
+   layer is pure hit area: no fill, no gradient, no border. */
+.mac-bubble {
+    width: 38px; min-width: 38px; max-width: 38px;
+    height: 38px; min-height: 38px; max-height: 38px;
+    margin: 0; padding: 0;
+    border: none;
+    border-radius: 9999px !important;
+    background: none;
+    background-color: transparent;
+    background-image: none;
+    color: white;
+}
+.mac-bubble:hover {
+    background: none;
+    background-image: none;
+}
+.mac-bubble:checked {
+    background: none;
+    background-image: none;
+}
+
+.mac-circle {
+    width: 70px; min-width: 70px; max-width: 70px;
+    height: 70px; min-height: 70px; max-height: 70px;
+    /* 70 across with 13 between the two: 153 + 12 + 70 + 13 + 70 = 318, so the
+       rows with the circles obey the very same grid as the others. */
+    padding: 0;
+    border: none;
+    border-radius: 9999px !important;
+    background: none;
+    /* Same widget base as the tiles: Liquid Glass reads it, then clears it. */
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    background-image: none;
+}
+.mac-circle:hover {
+    background: none;
+    background-image: none;
+}
+.mac-circle:checked {
+    background: none;
+    background-image: none;
+}
+.mac-circle .mac-icon { icon-size: 30px !important; }
+
+/* The clickable layer of the round buttons must be invisible: the disc is
+   drawn in Cairo underneath it. */
+.mac-circle-button, .mac-circle-button:hover, .mac-circle-button:focus {
+    padding: 0; margin: 0;
+    border: none;
+    background: none;
+    box-shadow: none;
+}
+
+/* Text of the pills. Measured on the reference: title ~16 reference units
+   (=12 CSS px at 0.76) in semibold, subtitle ~16 in regular. It was 10/9px,
+   i.e. 30-40% too small: that alone made the panel look nothing like the photo. */
+.mac-tile-text-btn { padding: 0; margin: 0; }
+.mac-title {
+    font-family: "SF UI Text", sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: white;
+}
+.mac-sub {
+    font-family: "SF UI Text", sans-serif;
+    /* A step under the 13px title: at the same size the two lines read as one
+       block, and the SSID (which wraps) no longer fits the pill. */
+    font-size: 11.5px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.78);
+    /* The photo leaves a small gap between the title and the second line. */
+    margin-top: 2px;
+}
+/* No accent tint on the glyphs: an enabled disc is white, so its glyph must be
+   near-black (white-on-white would vanish); every other glyph is white. This is
+   the "remove the colours" look the reference has — monochrome only. */
+.mac-bubble:checked .mac-icon,
+.mac-bubble:active .mac-icon { color: #1c1c1e; }
+.mac-focus .mac-bubble:checked,
+.mac-focus .mac-bubble:active {
+    background: none;
+    background-image: none;
+}
+.mac-focus .mac-bubble:checked .mac-icon,
+.mac-focus .mac-bubble:active .mac-icon { color: #1c1c1e; }
+
+.mac-media {
+    width: 153px; min-width: 153px; max-width: 153px;
+    height: 153px; min-height: 153px; max-height: 153px;
+    padding: 0;
+    border: none;
+    /* Same outline the glass draws for the player (half the pod height). */
+    border-radius: 36px !important;
+    background-image: none;
+    /* Same widget base as the tiles: Liquid Glass reads it, then clears it. */
+    background-color: rgba(255, 255, 255, 0.15) !important;
+}
+.mac-media-art {
+    width: 40px; min-width: 40px; max-width: 40px;
+    height: 40px; min-height: 40px; max-height: 40px;
+    border-radius: 7px;
+    background-size: 40px 40px;
+    /* Placeholder cover when nothing is playing: a gradient, because Liquid
+       Glass clears background-color but leaves gradients alone. When a track
+       has art, the background-image set by extension.js covers it. */
+    background-gradient-direction: vertical;
+    background-gradient-start: rgba(255, 255, 255, 0.20);
+    background-gradient-end: rgba(255, 255, 255, 0.10);
+    /* Positions come from controlCenter.js (FixedLayout): a CSS margin here
+       would shift the cover a second time. */
+    margin: 0;
+}
+.mac-media-title { font-size: 13px; margin: 0; }
+.mac-media-sub { font-size: 13px; margin: 0; }
+.mac-media-controls { spacing: 0; padding: 0; margin: 0; }
+/* The shell theme (MacTahoe) puts a padding on every StBoxLayout child of a
+   .quick-toggle; zero it with a selector at least as specific as the theme's,
+   but keep the geometry in controlCenter.js (single source of truth). */
+.mac-cc .quick-toggle > .mac-media-controls { padding: 0; spacing: 0; margin: 0; }
+.mac-cc .quick-toggle > .mac-slider-row     { padding: 0; margin: 0; }
+.mac-media-button, .mac-media-button:focus {
+    width: 30px; min-width: 30px; max-width: 30px;
+    height: 30px; min-height: 30px; max-height: 30px;
+    padding: 0;
+    margin: 0 6px;
+    border: none;
+    border-radius: 15px;
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+    color: white;
+}
+.mac-media-icon { icon-size: 25px !important; }
+
+.mac-slider-tile {
+    width: 318px; min-width: 318px; max-width: 318px !important;
+    height: 72px;
+    padding: 0;
+    border: none;
+    /* A little boxier than a capsule, and exactly the radius the glass is asked
+       for (`pill(ext._display, 26)`): the pod's own outline and the glass below
+       cannot disagree. */
+    border-radius: 26px !important;
+    background-image: none;
+    /* Same widget base as the tiles: Liquid Glass reads it, then clears it. */
+    background-color: rgba(255, 255, 255, 0.15) !important;
+}
+.mac-slider-row {
+    spacing: 6px;
+    padding: 0;
+    min-height: 0;
+    margin: 0;
+}
+.mac-slider-tile .slider { height: 15px; min-width: 120px; }
+/* Brightness/volume symbols: the row is full width again, and 18px read as
+   tiny next to it. */
+.mac-slider-row .mac-small { icon-size: 22px !important; }
+.mac-airplay {
+    width: 22px; min-width: 22px; max-width: 22px;
+    height: 22px; min-height: 22px; max-height: 22px;
+    border-radius: 11px;
+}
+
+/* "Edit Controls" at the bottom: a small glass capsule.
+   The button carries `quick-toggle` (pannelli.js), so Liquid Glass paints a
+   real frosted pod behind it. Every background of our own is removed here —
+   a gradient would sit ON TOP of that glass and hide it — and the geometry is
+   pinned so the theme's toggle padding cannot inflate the capsule. */
+.mac-edit-row { padding-top: 4px; }
+.mac-cc .mac-edit-controls, .mac-cc .mac-edit-controls:focus {
+    padding: 3px 15px;
+    min-width: 0;
+    min-height: 26px;
+    border: none;
+    border-radius: 14px;
+    background-color: transparent !important;
+    background-image: none;
+    background-gradient-direction: vertical;
+    background-gradient-start: rgba(255, 255, 255, 0);
+    background-gradient-end: rgba(255, 255, 255, 0);
+    color: rgba(255, 255, 255, 0.95);
+    box-shadow: none;
+}
+.mac-edit-controls:hover {
+    background-gradient-start: rgba(255, 255, 255, 0.12);
+    background-gradient-end: rgba(255, 255, 255, 0.12);
+}
+.mac-edit-label { font-size: 12px; }
+
+.mac-icon { icon-size: 25px !important; }
+.mac-small { icon-size: 18px !important; }
+
+/* ===========================================================================
+   LIGHT THEME — text and controls on the light glass
+   The glass tone now comes from the theme (pannelli.js writes Liquid Glass'
+   tint: light frosted in the light theme, charcoal in the dark one), so the
+   white text every rule above declares is only correct on the dark tone. In
+   the light theme it would be white-on-white. pannelli.js puts `mac-light` on
+   the `.mac-cc` root whenever the theme is light; everything below only
+   restates the same elements in the dark ink of the theme's widgets.
+
+   GNOME's own notifications and the panel menus are not ours: they already
+   follow the shell theme, which is exactly the colour matching the tone.
+   =========================================================================== */
+
+.mac-light .mac-tile,
+.mac-light .mac-bubble,
+.mac-light .mac-circle,
+.mac-light .mac-media-button,
+.mac-light .mac-cc-detail { color: #1c1c1e; }
+
+.mac-light .mac-title,
+.mac-light .mac-media-title,
+.mac-light .mac-panel-label,
+.mac-light .mac-panel-title { color: #1c1c1e; }
+
+.mac-light .mac-sub { color: rgba(28, 28, 30, 0.72); }
+.mac-light .mac-small { color: rgba(28, 28, 30, 0.78); }
+.mac-light .mac-panel-sub { color: rgba(28, 28, 30, 0.62); }
+.mac-light .mac-panel-info { color: rgba(28, 28, 30, 0.55); }
+.mac-light .mac-panel-section { color: rgba(28, 28, 30, 0.55); }
+.mac-light .mac-panel-back .mac-panel-label { color: rgba(28, 28, 30, 0.80); }
+.mac-light .mac-panel-icon { color: rgba(28, 28, 30, 0.90); }
+/* Icons on a coloured chip keep the chip's own white glyph. */
+.mac-light .mac-panel-chip .mac-panel-icon { color: white; }
+
+/* Slider: a white track on white glass is invisible, so the ink goes dark. */
+.mac-light .mac-slider-tile .slider {
+    -slider-background-color: rgba(28, 28, 30, 0.26);
+    -slider-active-background-color: #1c1c1e;
+}
+
+/* AirPlay button and the "Edit Controls" capsule. */
+.mac-light .mac-airplay {
+    color: #1c1c1e;
+    background-gradient-direction: vertical;
+    background-gradient-start: rgba(28, 28, 30, 0.12);
+    background-gradient-end: rgba(28, 28, 30, 0.12);
+}
+.mac-light .mac-edit-controls {
+    color: rgba(28, 28, 30, 0.92);
+    border: none;
+    background-color: transparent !important;
+    background-gradient-start: rgba(28, 28, 30, 0);
+    background-gradient-end: rgba(28, 28, 30, 0);
+}
+.mac-light .mac-edit-controls:hover {
+    background-gradient-start: rgba(28, 28, 30, 0.10);
+    background-gradient-end: rgba(28, 28, 30, 0.10);
+}
+
+/* Detail sheet: the switch track, the separators, the scrollbar and the cover
+   placeholder are all white-on-dark by default. */
+.mac-light .mac-switch {
+    background-gradient-start: rgba(28, 28, 30, 0.30);
+    background-gradient-end: rgba(28, 28, 30, 0.30);
+}
+.mac-light .mac-panel-sep {
+    background-gradient-start: rgba(28, 28, 30, 0.14);
+    background-gradient-end: rgba(28, 28, 30, 0.14);
+}
+.mac-light .mac-panel-scroll .vscrollbar .slider {
+    background-gradient-start: rgba(28, 28, 30, 0.35);
+    background-gradient-end: rgba(28, 28, 30, 0.35);
+}
+.mac-light .mac-media-art {
+    background-gradient-start: rgba(28, 28, 30, 0.22);
+    background-gradient-end: rgba(28, 28, 30, 0.12);
+}
+
+/* ---------- the editable grid (pannelli.js) ----------
+   The panel is one free-positioning grid now, so the pods are placed in code
+   and nothing here may resize them behind its back. */
+.mac-grid { padding: 0; margin: 0; }
+.mac-tile.mac-tile-sq {
+    width: 70px !important; min-width: 70px !important; max-width: 70px !important;
+    height: 70px !important; min-height: 70px !important; max-height: 70px !important;
+    border-radius: 35px !important;
+}
+/* Shrunk to one cell, the pod is a round block: the whole circle is the
+   target (as on the four round buttons), not the 38px option disc inside it. */
+.mac-tile.mac-tile-sq .mac-bubble {
+    width: 70px; min-width: 70px; max-width: 70px;
+    height: 70px; min-height: 70px; max-height: 70px;
+    border-radius: 9999px !important;
+}
+/* Edit mode: the two handles are plain round badges, no wiggle anywhere. */
+.mac-edit-badge, .mac-edit-resize {
+    padding: 0; margin: 0;
+    min-width: 22px; min-height: 22px;
+    border-radius: 9999px;
+    background-color: rgba(22, 22, 24, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    color: white;
+    font-size: 13px;
+    font-weight: 700;
+}
+.mac-edit-badge:hover, .mac-edit-resize:hover {
+    background-color: rgba(70, 70, 76, 0.95);
+}
+/* The drawer under the panel: what was removed from the grid is offered as the
+   block itself, shrunk to a thumbnail (pill, circle, square, slider bar) with
+   its name underneath — no line of text to read and translate. */
+.mac-edit-drawer { spacing: 3px; padding: 6px 0 2px; }
+.mac-edit-drawer-label {
+    color: rgba(255, 255, 255, 0.78);
+    font-family: "SF UI Text", sans-serif;
+    font-size: 11.5px;
+}
+/* The drawer holds the blocks themselves — the very actors taken out of the
+   grid — so all it needs are the rows that lay them out, and a transparent
+   button over each piece to take the press. */
+/* The blocks that are not on the grid live in a pane of their own under it, the
+   way iOS keeps the gallery of controls apart from the page you are editing:
+   own tone, own title, own edges. */
+.mac-add-shelf {
+    spacing: 12px;
+    padding: 12px 0;
+    border-radius: 26px;
+    background-color: rgba(255, 255, 255, 0.10);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+.mac-add-row { spacing: 12px; }
+.mac-add-hit {
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background-color: transparent !important;
+    background-image: none;
+    box-shadow: none;
+}
+.mac-edit-drawer-item {
+    padding: 3px 11px;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    background-color: transparent;
+    color: white;
+    font-family: "SF UI Text", sans-serif;
+    font-size: 11.5px;
+}
+.mac-edit-drawer-item:hover { background-color: rgba(255, 255, 255, 0.16); }
+
+/* Light glass: the drawer follows the theme's ink like every other label. */
+.mac-light .mac-edit-drawer-label,
+.mac-light .mac-edit-drawer-item { color: #1c1c1e; }
+.mac-light .mac-edit-drawer-item { border-color: rgba(28, 28, 30, 0.35); }
+.mac-light .mac-add-shelf {
+    background-color: rgba(28, 28, 30, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }

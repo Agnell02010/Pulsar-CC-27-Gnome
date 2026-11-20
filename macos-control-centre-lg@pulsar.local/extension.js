@@ -6,6 +6,8 @@ import St from 'gi://St';
 import Soup from 'gi://Soup?version=3.0';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
+
+import {TogglePillTile, MediaSquareTile, CircleTile, SliderBar} from './controlCenter.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Slider} from 'resource:///org/gnome/shell/ui/slider.js';
 import * as Volume from 'resource:///org/gnome/shell/ui/status/volume.js';
@@ -20,7 +22,14 @@ function symbol(name) {
 
 // --- Laptop backlight: reads /sys and writes through logind
 const BL_DIR = '/sys/class/backlight';
+// The directory is scanned once: the panel used to enumerate /sys/class/backlight
+// on every refresh, i.e. in the same frame in which it started to open.
+let _backlight;
+let _backlightScanned = false;
 function findBacklight() {
+    if (_backlightScanned)
+        return _backlight;
+    _backlightScanned = true;
     try {
         const en = Gio.File.new_for_path(BL_DIR).enumerate_children(
             'standard::name', Gio.FileQueryInfoFlags.NONE, null);
@@ -29,10 +38,11 @@ function findBacklight() {
         while ((info = en.next_file(null)))
             names.push(info.get_name());
         en.close(null);
-        return names[0] ?? null;
+        _backlight = names[0] ?? null;
     } catch (e) {
-        return null;
+        _backlight = null;
     }
+    return _backlight;
 }
 function readInt(path) {
     try {
@@ -172,9 +182,11 @@ const LG_OVERRIDE = 'background-color: transparent !important;';
 const STRINGS = {
     // key:  night       dnd                 display     sound     notPlaying              on        off
     en: {night: 'Night Shift', dnd: 'Do Not Disturb', display: 'Display', sound: 'Sound',
-         notPlaying: 'Not Playing', on: 'On', off: 'Off'},
+         notPlaying: 'Not Playing', on: 'On', off: 'Off', editControls: 'Edit Controls',
+         focus: 'Focus'},
     it: {night: 'Luce notturna', dnd: 'Non disturbare', display: 'Schermo', sound: 'Audio',
          notPlaying: 'Non in riproduzione', on: 'Attivo', off: 'Non attivo',
+         editControls: 'Modifica controlli', focus: 'Focus',
          onF: 'Attiva', offF: 'Non attiva'},          // "Luce notturna" is feminine
     fr: {night: 'Lumière nocturne', dnd: 'Ne pas déranger', display: 'Écran', sound: 'Son',
          notPlaying: 'Aucune lecture', on: 'Activé', off: 'Désactivé',
@@ -521,80 +533,45 @@ function glideTo(slider, to) {
 }
 
 function wideTile(iconName, title, subtitle, extraClass, onToggle, onMenu) {
-    const btn = new St.BoxLayout({
-        style_class: `mac-tile ${extraClass}`,
-        reactive: true,
-        can_focus: true,
-    });
-    const row = new St.BoxLayout({y_align: Clutter.ActorAlign.CENTER, style_class: 'mac-tile-row', x_expand: true});
-    
-    // The circle is now an independent button (to switch it on/off)
-    const bubble = new St.Button({
-        style_class: 'mac-bubble',
-        y_align: Clutter.ActorAlign.CENTER,
-        can_focus: true,
-        reactive: true,
-        child: icon(iconName),
-    });
-    // Compresses as soon as you press it (bubble or text), not on release.
-    bindPress(bubble, btn);
-    // On activation the WHOLE pill springs: bubble and pill move as one piece.
-    bubble.connect('clicked', () => {
-        btn._macPopSyncPending = true;   // the following sync is the echo
-        pop(btn);
+    // The pill is TogglePillTile: a Cairo squircle of 192x89 with the option
+    // circle (46px) at cx=43 and the 46px-tall text block starting at x=76.
+    const tile = asGlassToggle(new TogglePillTile({
+        title,
+        subtitle,
+        extraClass,
+        icon: icon(iconName),
+    }));
+
+    // Pressing the circle switches the tile on/off; pressing the text opens the
+    // detail sheet. Both compress the whole pill, not just the part you hit.
+    bindPress(tile.bubble, tile);
+    tile.bubble.connect('clicked', () => {
+        tile._macPopSyncPending = true;   // the following sync is the echo
+        pop(tile);
         onToggle?.();
     });
+    bindPress(tile.textBtn, tile);
+    tile.textBtn.connect('clicked', () => onMenu?.(tile));
 
-    // The text part opens the settings menu
-    const textBtn = new St.Button({
-        y_align: Clutter.ActorAlign.CENTER,
-        x_expand: true,
-        can_focus: true,
-        reactive: true,
-        style_class: 'mac-tile-text-btn'
-    });
-    const texts = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, y_align: Clutter.ActorAlign.CENTER, x_expand: true});
-    const t = new St.Label({text: title, style_class: 'mac-title', reactive: false, can_focus: false});
-    const s = new St.Label({text: subtitle, style_class: 'mac-sub', reactive: false, can_focus: false});
-    for (const l of [t, s])
-        l.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-    texts.add_child(t);
-    texts.add_child(s);
-    textBtn.set_child(texts);
-    bindPress(textBtn, btn);
-    textBtn.connect('clicked', () => {
-        // Hand the whole pill to the callback so pannelli.js can expand the
-        // detail sheet out of the tile that was actually clicked.
-        onMenu?.(btn);
-    });
-
-    row.add_child(bubble);
-    row.add_child(textBtn);
-    btn.add_child(row);
-    
-    btn._sub = s;
-    btn._bubble = bubble;
-    pivot(btn);
-    return asGlassToggle(btn);
+    tile._sub = tile.subLabel;
+    tile._bubble = tile.bubble;
+    tile._textBtn = tile.textBtn;
+    pivot(tile);
+    return tile;
 }
 
 function circleButton(iconName, extraClass, onClick) {
-    const btn = new St.Button({
-        style_class: `mac-circle ${extraClass}`,
-        can_focus: true,
-        reactive: true,
-        child: icon(iconName),
-    });
-    bindPress(btn);
-    // The activation spring starts right at the release instant, instead of
-    // waiting for the D-Bus state sync to come back.
-    btn.connect('clicked', () => {
-        btn._macPopSyncPending = true;   // the following sync is the echo
-        pop(btn);
+    const tile = asGlassCircle(new CircleTile({icon: icon(iconName), extraClass}));
+    bindPress(tile.button, tile);
+    // The activation spring starts at the release instant, instead of waiting
+    // for the D-Bus state sync to come back.
+    tile.button.connect('clicked', () => {
+        tile._macPopSyncPending = true;
+        pop(tile);
         onClick?.();
     });
-    pivot(btn);
-    return asGlassCircle(btn);
+    pivot(tile);
+    return tile;
 }
 
 function setOn(widget, on, popTarget = widget) {
@@ -603,6 +580,13 @@ function setOn(widget, on, popTarget = widget) {
         widget.add_style_pseudo_class('checked');
     else
         widget.remove_style_pseudo_class('checked');
+    // The Cairo outline paints its own "on" state.
+    widget.setOn?.(on);
+    // Wide tiles pass the whole pill as popTarget: their bubble is a plain
+    // St.Button, so its PodShape (tile.shape) is what must learn the state.
+    // Without this the bubble disc stayed grey on an enabled Wi-Fi.
+    if (popTarget !== widget)
+        popTarget.shape?.setOn?.(on);
     // Only when the state REALLY changed: no pop on every sync. popTarget is
     // the whole pill on the wide tiles (the bubble is only its indicator).
     if (was === on)
@@ -623,27 +607,38 @@ function launch(cmd) {
 }
 
 function sliderTile(title, lowIcon, highIcon, onTrail) {
-    const box = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, style_class: 'mac-slider-tile'});
-    pivot(box);
-    box.add_child(new St.Label({text: title, style_class: 'mac-title'}));
-    const row = new St.BoxLayout({y_align: Clutter.ActorAlign.CENTER, style_class: 'mac-slider-row'});
     const slider = new Slider(0.5);
     slider.x_expand = true;
     slider.y_align = Clutter.ActorAlign.CENTER;
-    // While you drag, the tile "lifts" a little and settles back on
-    // release. (The slider handle is drawn in Cairo by BarLevel and is not a
-    // separate actor: scaling it during the drag would also shift the value
-    // mapping, so we do not do that.)
+    const trail = onTrail ? new St.Button({
+        style_class: 'mac-airplay',
+        can_focus: true,
+        reactive: true,
+        child: icon('mc:airplay', 'mac-small'),
+    }) : null;
+    const bar = new SliderBar({
+        title,
+        lowIcon: icon(lowIcon, 'mac-small'),
+        highIcon: icon(highIcon, 'mac-small'),
+        slider,
+        trail,
+    });
+
+    if (onTrail) {
+        bindPress(trail);
+        trail.connect('clicked', () => onTrail());
+    }
+
+    // While you drag, the whole bar lifts a little and settles back on release.
     slider.connect('drag-begin', () => {
-        // The user's hand owns the value: an in-flight glide cancels here.
         if (slider._glideId) {
             GLib.source_remove(slider._glideId);
             slider._glideId = 0;
         }
         slider._dragging = true;
-        if (!animOn(box))
+        if (!animOn(bar))
             return;
-        box.ease({
+        bar.ease({
             scale_x: _anim.sliderLift,
             scale_y: _anim.sliderLift,
             duration: _anim.sliderUp,
@@ -654,30 +649,16 @@ function sliderTile(title, lowIcon, highIcon, onTrail) {
         slider._dragging = false;
         if (!_anim.enabled)
             return;
-        box.ease({
+        bar.ease({
             scale_x: 1,
             scale_y: 1,
             duration: _anim.sliderDown,
             mode: Clutter.AnimationMode.EASE_OUT_BACK,
         });
     });
-    row.add_child(icon(lowIcon, 'mac-small'));
-    row.add_child(slider);
-    row.add_child(icon(highIcon, 'mac-small'));
-    if (onTrail) {
-        const trail = new St.Button({
-            style_class: 'mac-airplay',
-            can_focus: true,
-            reactive: true,
-            child: icon('mc:airplay', 'mac-small'),
-        });
-        bindPress(trail);
-        trail.connect('clicked', () => onTrail());
-        row.add_child(trail);
-    }
-    box.add_child(row);
-    box.slider = slider;
-    return asGlassSlider(box);
+
+    bar.slider = slider;
+    return asGlassSlider(bar);
 }
 
 /* ---------- extension ---------- */
@@ -747,10 +728,18 @@ export default class MacControlCentre extends Extension {
 
         this._ids.push([this._qs.menu, this._qs.menu.connect('open-state-changed', (_m, open) => {
             if (open) {
-                // First the cascading entrance, then the sync: so the state
-                // "pop"s never overlap the opening animation.
+                // First the cascading entrance, on its own.
                 this._startEntrance();
-                this._refresh();
+                // The state sync (D-Bus, /sys, the mixer, MPRIS) used to run in
+                // the very frame in which the panel started to open, and it is
+                // what made the first 100-200 ms of the animation stutter.
+                // A few frames later it is invisible: the tiles are already
+                // arriving and the values land well before the cascade ends.
+                later(140, () => {
+                    if (!this._panel || !this._qs?.menu?.isOpen)
+                        return;
+                    this._refresh();
+                });
             } else {
                 this._pan?.close();
             }
@@ -884,10 +873,13 @@ export default class MacControlCentre extends Extension {
         const panel = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, style_class: 'mac-cc'});
         this._panel = panel;
 
-        /* Left / right columns */
+        /* Top block: Wi-Fi + Bluetooth on the left (2 pills = 147, exactly the
+           height of the player), the player on the right. The Night Shift pill
+           used to be stacked here too, which made this block 68px taller than
+           the player and broke every proportion below it. */
         const top = new St.BoxLayout({style_class: 'mac-row'});
-        const left = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, style_class: 'mac-col'});
-        const right = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, style_class: 'mac-col'});
+        const left = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, style_class: 'mac-col mac-left-col'});
+        const right = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, style_class: 'mac-col mac-right-col'});
 
         this._wifi = wideTile('mc:wifi', 'Wi-Fi', '', '', 
             () => this._toggleWifi(), 
@@ -897,17 +889,24 @@ export default class MacControlCentre extends Extension {
             () => this._toggleBt(), 
             (anchor) => this._openPanel('bluetooth', anchor)
         );
+        left.add_child(this._wifi);
+        left.add_child(this._bt);
+
+        this._mediaTile = this._buildMedia();
+        right.add_child(this._mediaTile);
+
+        top.add_child(left);
+        top.add_child(right);
+        panel.add_child(top);
+
+        /* Row: Night Shift pill on the left, Stage + Mirror circles on the right. */
+        const row3 = new St.BoxLayout({style_class: 'mac-row'});
         this._night = wideTile('mc:sun-horizon', tr('night'), '', '', 
             () => this._toggleNight(), 
             (anchor) => this._openPanel('display', anchor)
         );
-        left.add_child(this._wifi);
-        left.add_child(this._bt);
-        left.add_child(this._night);
-
-        this._mediaTile = this._buildMedia();
-        right.add_child(this._mediaTile);
-        const pair = new St.BoxLayout({style_class: 'mac-row'});
+        row3.add_child(this._night);
+        const pair = new St.BoxLayout({style_class: 'mac-row mac-row-circles'});
         this._stage = circleButton('mc:stage', '', () => {
             this._qs.menu.close();
             Main.overview.toggle();
@@ -918,15 +917,12 @@ export default class MacControlCentre extends Extension {
             launch('gnome-control-center display');
         });
         pair.add_child(this._mirror);
-        right.add_child(pair);
-
-        top.add_child(left);
-        top.add_child(right);
-        panel.add_child(top);
+        row3.add_child(pair);
+        panel.add_child(row3);
 
         /* Row: dark mode, screenshot, Do Not Disturb */
         const row4 = new St.BoxLayout({style_class: 'mac-row'});
-        const circles = new St.BoxLayout({style_class: 'mac-row'});
+        const circles = new St.BoxLayout({style_class: 'mac-row mac-row-circles'});
         
         // Fixed mac-blue removed, :checked is used instead
         this._dark = circleButton('mc:contrast', '', () => this._toggleDark());
@@ -939,7 +935,7 @@ export default class MacControlCentre extends Extension {
             });
         });
         circles.add_child(this._shot);
-        this._dnd = wideTile('mc:moon', tr('dnd'), '', '', 
+        this._dnd = wideTile('mc:moon', tr('focus'), '', 'mac-focus', 
             () => this._toggleDnd(), 
             (anchor) => this._openPanel('focus', anchor)
         );
@@ -955,6 +951,24 @@ export default class MacControlCentre extends Extension {
         });
         panel.add_child(this._display);
         panel.add_child(this._sound);
+
+        /* "Edit Controls", like the reference's bottom capsule. */
+        const editRow = new St.BoxLayout({
+            style_class: 'mac-edit-row',
+            x_align: Clutter.ActorAlign.CENTER,
+        });
+        const editBtn = new St.Button({
+            style_class: 'mac-edit-controls',
+            can_focus: true,
+            reactive: true,
+            child: new St.Label({text: tr('editControls'), style_class: 'mac-edit-label'}),
+        });
+        editBtn.connect('clicked', () => {
+            this._qs.menu.close();
+            launch('gnome-control-center');
+        });
+        editRow.add_child(editBtn);
+        panel.add_child(editRow);
 
         this._display.slider.connect('notify::value', () => {
             if (this._building)
@@ -986,10 +1000,10 @@ export default class MacControlCentre extends Extension {
         // Order in which the widgets enter when you open the panel: left to
         // right, top to bottom (like MacOS does).
         this._enterActors = [
-            this._wifi, this._bt, this._night,
-            this._mediaTile, this._stage, this._mirror,
+            this._wifi, this._bt, this._mediaTile,
+            this._night, this._stage, this._mirror,
             this._dark, this._shot, this._dnd,
-            this._display, this._sound,
+            this._display, this._sound, editBtn,
         ];
         for (const a of this._enterActors)
             pivot(a);
@@ -998,41 +1012,13 @@ export default class MacControlCentre extends Extension {
     }
 
     _buildMedia() {
-        const tile = asGlassMedia(new St.BoxLayout({
-            orientation: Clutter.Orientation.VERTICAL,
-            style_class: 'mac-media',
-            x_expand: true,
-        }));
+        const tile = asGlassMedia(new MediaSquareTile());
+        this._art = tile.art;
+        this._mediaTitle = tile.titleLabel;
+        this._mediaSub = tile.subLabel;
+        this._mediaTitle.text = tr('notPlaying');
 
-        // Album art in the top-left corner.
-        // It already carries LG_OVERRIDE in its style (see the comment above):
-        // Liquid Glass then ignores it entirely and the album art is untouched.
-        this._art = new St.Widget({
-            style_class: 'mac-media-art',
-            style: LG_OVERRIDE,
-            x_align: Clutter.ActorAlign.START,
-            y_align: Clutter.ActorAlign.START,
-        });
-
-        this._mediaTitle = new St.Label({
-            text: tr('notPlaying'),
-            style_class: 'mac-title mac-media-title',
-            x_align: Clutter.ActorAlign.START,
-        });
-        this._mediaTitle.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-
-        // The buttons are centred with two elastic spacers on each side: the
-        // box takes the full width and the two spacers split the leftover
-        // space in equal parts. (x_align alone was not enough: the tile layout
-        // expanded the box anyway and the buttons ended up shifted right.)
-        const controls = new St.BoxLayout({
-            style_class: 'mac-media-controls',
-            x_expand: true,
-            y_expand: true,
-            y_align: Clutter.ActorAlign.END,
-        });
-        const spacer = () => new St.Widget({ x_expand: true });
-
+        // The three buttons go into the tile's centred, bottom-anchored row.
         const mk = (name, method) => {
             const b = new St.Button({
                 style_class: 'mac-media-button',
@@ -1053,16 +1039,11 @@ export default class MacControlCentre extends Extension {
         };
 
         this._playBtn = mk('play', 'PlayPause');
-        pivot(this._playBtn.child);   // the glyph rotates/scales from its own centre
-        controls.add_child(spacer());
-        controls.add_child(mk('rewind', 'Previous'));
-        controls.add_child(this._playBtn);
-        controls.add_child(mk('forward', 'Next'));
-        controls.add_child(spacer());
+        pivot(this._playBtn.child);
+        tile.controls.add_child(mk('rewind', 'Previous'));
+        tile.controls.add_child(this._playBtn);
+        tile.controls.add_child(mk('forward', 'Next'));
 
-        tile.add_child(this._art);
-        tile.add_child(this._mediaTitle);
-        tile.add_child(controls);
         pivot(tile);
         return tile;
     }
@@ -1079,11 +1060,11 @@ export default class MacControlCentre extends Extension {
         const apply = path => {
             if (this._artUrl !== url || !this._panel)
                 return;
-            // background-size = exact size of the box (46x46, see CSS): this way
+            // background-size = exact size of the box (38x38, see CSS): this way
             // the image fills the box and its border-radius (11px) can crop it
             // with rounded corners (if it were any smaller the inner corners of
             // the image would stay square).
-            this._art.set_style(`${LG_OVERRIDE} background-image: url("file://${path}"); background-size: 46px 46px;`);
+            this._art.set_style(`${LG_OVERRIDE} background-image: url("file://${path}"); background-size: 38px 38px;`);
         };
         if (url.startsWith('file://')) {
             apply(decodeURIComponent(url.slice(7)));
@@ -1168,7 +1149,23 @@ export default class MacControlCentre extends Extension {
         propGet(Gio.DBus.system, 'org.freedesktop.NetworkManager', '/org/freedesktop/NetworkManager',
             'org.freedesktop.NetworkManager', 'WirelessEnabled', on => {
                 setOn(this._wifi._bubble, !!on, this._wifi); // Uses _bubble instead of the whole tile!
-                this._wifi._sub.text = on ? tr('on') : tr('off');
+                // The reference shows the network name, not a plain "On".
+                if (!on) {
+                    this._wifi._sub.text = tr('off');
+                    return;
+                }
+                this._wifi._sub.text = tr('on');
+                propGet(Gio.DBus.system, 'org.freedesktop.NetworkManager',
+                    '/org/freedesktop/NetworkManager', 'org.freedesktop.NetworkManager',
+                    'PrimaryConnection', primary => {
+                        if (!primary || !this._wifi)
+                            return;
+                        propGet(Gio.DBus.system, 'org.freedesktop.NetworkManager', primary,
+                            'org.freedesktop.NetworkManager.Connection.Active', 'Id', id => {
+                                if (id)
+                                    this._wifi._sub.text = id;
+                            });
+                    });
             });
         propGet(Gio.DBus.system, 'org.bluez', '/org/bluez/hci0', 'org.bluez.Adapter1', 'Powered', on => {
             setOn(this._bt._bubble, !!on, this._bt);
@@ -1254,6 +1251,7 @@ export default class MacControlCentre extends Extension {
                 return;
             if (!name) {
                 this._mediaTitle.text = tr('notPlaying');
+                this._mediaSub.text = '';
                 this._setPlayGlyph('play');
                 this._setArt(null);
                 return;
@@ -1276,9 +1274,14 @@ export default class MacControlCentre extends Extension {
                 try {
                     const m = md.deepUnpack();
                     this._mediaTitle.text = m['xesam:title']?.deepUnpack() || tr('notPlaying');
+                    const rawArtist = m['xesam:artist']?.deepUnpack?.();
+                    const artist = Array.isArray(rawArtist) ? rawArtist.join(', ') : (rawArtist || '');
+                    const album = m['xesam:album']?.deepUnpack?.() || '';
+                    this._mediaSub.text = artist || album;
                     this._setArt(m['mpris:artUrl']?.deepUnpack() ?? null);
                 } catch (e) {
                     this._mediaTitle.text = tr('notPlaying');
+                    this._mediaSub.text = '';
                     this._setArt(null);
                 }
             });
