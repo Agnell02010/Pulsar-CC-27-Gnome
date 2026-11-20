@@ -1485,7 +1485,6 @@ export function crea(ext, h) {
 
     const colX = (c) => Math.round(c * (CELL_W + GAP_X));
     const spanW = (n) => Math.round(n * CELL_W + (n - 1) * GAP_X);
-    const rowY = (r) => r * (ROW_H + GAP_Y);
 
     function layoutDefs() {
         return {
@@ -2162,41 +2161,6 @@ export function crea(ext, h) {
     /* Drop a block on a cell. If that cell is taken, the nearest free one is
      * used: the block lands where the hand left it instead of jumping to a
      * computed packing slot, and nothing else moves. */
-    function placeAt(id, col, row) {
-        const it = gridLayout.find((e) => e.id === id);
-        if (!it)
-            return;
-        const def = layoutDefs()[id];
-        if (!def)
-            return;
-        const {sx, sy} = spanOf(def, it);
-        const occ = occupancy(id);
-        let c = Math.max(0, Math.min(GRID_COLS - sx, col));
-        let r = Math.max(0, row);
-        if (!isFree(occ, r, c, sx, sy)) {
-            let best = null;
-            let bestD = Infinity;
-            for (let rr = 0; rr < 60; rr++) {
-                for (let cc = 0; cc + sx <= GRID_COLS; cc++) {
-                    if (!isFree(occ, rr, cc, sx, sy))
-                        continue;
-                    const d = Math.hypot(cc - c, rr - r);
-                    if (d < bestD) {
-                        bestD = d;
-                        best = {row: rr, col: cc};
-                    }
-                }
-            }
-            if (!best)
-                return;
-            r = best.row;
-            c = best.col;
-        }
-        it.col = c;
-        it.row = r;
-        applyGridEdit();
-    }
-
     function editOverlay(id, def) {
         const g = geometry.get(id) || {w: 70, h: 70};
         const ov = new St.Widget({
@@ -2265,19 +2229,6 @@ export function crea(ext, h) {
         startDragAt(actor, x, y);
         return Clutter.EVENT_STOP;
     }
-
-    function onDragEvent(_stage, ev) {
-        if (!drag)
-            return Clutter.EVENT_PROPAGATE;
-        try {
-            return dragEvent(ev);
-        } catch (e) {
-            fail(e, 'drag');
-            endDrag();
-            return Clutter.EVENT_PROPAGATE;
-        }
-    }
-
     /* The actual movement, shared by the event path and the pointer poll. */
     function dragTo(x, y) {
         if (!drag)
